@@ -3,47 +3,73 @@ import subprocess
 import telebot
 from openai import OpenAI
 
-# Les variables sont gérées par Coolify
+# 1. Configuration des Clés (Coolify s'en occupe)
 DEEPSEEK_KEY = os.getenv("DEEPSEEK_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
+# 2. Initialisation des clients
 client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# Mémoire système pour l'IA
-history = [{"role": "system", "content": "Tu es Daedalus, l'agent personnel de Kam. Tu peux exécuter des commandes via /exec."}]
+# 3. Mémoire système
+history = [{"role": "system", "content": "Tu es Daedalus, l'agent de Kam. Tu peux executer des commandes avec /exec et ecrire des fichiers avec /write. Tu es un expert en code."}]
 
+# 4. Fonction pour exécuter des commandes terminal
 def execute_terminal(command):
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
-        return result.stdout if result.stdout else result.stderr
+        output = result.stdout if result.stdout else result.stderr
+        return output if output else "Commande exécutée avec succès."
     except Exception as e:
-        return str(e)
+        return f"Erreur Terminal : {str(e)}"
 
+# 5. Fonction pour écrire/modifier des fichiers
+def write_file(path, content):
+    try:
+        with open(path, 'w') as f:
+            f.write(content)
+        return f"✅ Fichier '{path}' créé ou mis à jour avec succès !"
+    except Exception as e:
+        return f"❌ Erreur d'écriture : {str(e)}"
+
+# 6. Gestionnaire de messages
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     user_input = message.text
     
-    # Commande directe
+    # Commande EXEC : /exec <commande>
     if user_input.startswith('/exec '):
         cmd = user_input.split('/exec ')[1]
         output = execute_terminal(cmd)
         bot.reply_to(message, f"```\n{output}\n```", parse_mode="Markdown")
         return
 
-    # Mode IA
+    # Commande WRITE : /write <nom_fichier> | <contenu>
+    if user_input.startswith('/write '):
+        try:
+            parts = user_input.replace('/write ', '').split('|', 1)
+            filename = parts[0].strip()
+            content = parts[1].strip()
+            res = write_file(filename, content)
+            bot.reply_to(message, res)
+        except:
+            bot.reply_to(message, "⚠️ Format requis : `/write fichier.py | contenu du code`", parse_mode="Markdown")
+        return
+
+    # Mode IA Conversationnelle
     history.append({"role": "user", "content": user_input})
     try:
         response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=history[-10:]
+            model="deepseek-chat", 
+            messages=history[-10:] # Garde les 10 derniers échanges
         )
         answer = response.choices[0].message.content
         history.append({"role": "assistant", "content": answer})
         bot.reply_to(message, answer)
     except Exception as e:
-        bot.reply_to(message, f"Erreur : {e}")
+        bot.reply_to(message, f"❌ Erreur IA : {str(e)}")
 
-print("🚀 Daedalus Agent actif !")
+# 7. Lancement du bot
+print("🚀 Daedalus Agent (Claude Code Mode) est prêt !")
 bot.polling()
 
