@@ -1,43 +1,41 @@
+import openai
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, RichLog, Input
-from textual.containers import Container
+
+client = openai.OpenAI(
+    api_key="sk-462e17eb90454973a6aaea3c08e04309",
+    base_url="https://api.deepseek.com"
+)
 
 class Daedalus(App):
-
-    BINDINGS = [("q", "quit", "Quitter"), ("escape", "quit", "Quitter")]
-    # Le style visuel (couleurs de l'interface)
-    CSS = """
-    RichLog {
-        background: #0d1117;
-        color: #58a6ff;
-        border: double #30363d;
-    }
-    Input {
-        dock: bottom;
-        background: #161b22;
-        color: white;
-    }
-    """
+    BINDINGS = [("q", "quit", "Quitter")]
+    CSS = "RichLog { background: #0d1117; color: #58a6ff; } Input { dock: bottom; }"
+    history = [{"role": "system", "content": "Tu es Daedalus."}]
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield Container(RichLog(highlight=True, markup=True, id="chat_logs"))
-        yield Input(placeholder="Entrez une commande pour Daedalus...")
+        yield Header()
+        yield RichLog(markup=True, wrap=True)
+        yield Input(placeholder="Ecris ici...")
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
         log = self.query_one(RichLog)
-        log.write("[bold cyan]SYSTÈME DAEDALUS v0.1[/]\n[gray]Architecte connecté. En attente de instructions...[/]")
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        log = self.query_one(RichLog)
-        if event.value.strip():
-            log.write(f"> [yellow]{event.value}[/]")
-            # Ici on ajoutera la connexion à l'IA plus tard
-            log.write("[italic grey]Analyse en cours...[/]")
-        event.input.value = ""
+        msg = event.value.strip()
+        if msg:
+            self.query_one(Input).value = ""
+            log.write(f"Moi : {msg}")
+            self.history.append({"role": "user", "content": msg})
+            try:
+                response = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=self.history
+                )
+                answer = response.choices[0].message.content
+                self.history.append({"role": "assistant", "content": answer})
+                log.write(f"Daedalus : {answer}")
+            except Exception as e:
+                log.write(f"Erreur : {e}")
 
 if __name__ == "__main__":
-    app = Daedalus()
-    app.run()
+    Daedalus().run()
 
