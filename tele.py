@@ -12,7 +12,7 @@ client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 # 3. Mémoire système
-history = [{"role": "system", "content": "Tu es Daedalus, l'agent de Kam. Tu peux executer des commandes avec /exec et ecrire des fichiers avec /write. Tu es un expert en code."}]
+history = [{"role": "system", "content": "Tu es Daedalus, l'agent de Kam. Pour coder : 1. Utilise /write fichier.py | contenu. 2. Utilise /exec python3 fichier.py pour tester. Propose toujours ces commandes à Kam pour agir sur le serveur."}]
 
 # 4. Fonction pour exécuter des commandes terminal
 def execute_terminal(command):
