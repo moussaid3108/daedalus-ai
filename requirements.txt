@@ -3,8 +3,4 @@ python-dotenv
 pyTelegramBotAPI
 requests
 openai
-python-telegram-bot
 textual
-
-
-
