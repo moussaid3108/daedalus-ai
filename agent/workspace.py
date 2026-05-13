@@ -22,7 +22,10 @@ def create_workspace(repo_url: str = None) -> tuple:
             raise ValueError(f"Clone failed: {result.stderr[:300]}")
     else:
         os.makedirs(workspace)
-        subprocess.run(["git", "init"], cwd=workspace, capture_output=True)
+        try:
+            subprocess.run(["git", "init"], cwd=workspace, capture_output=True)
+        except FileNotFoundError:
+            pass  # git absent du conteneur, le workspace reste utilisable
 
     return ws_id, workspace
 
