@@ -1,14 +1,17 @@
 import os
 from flask import Flask, render_template_string, request, jsonify
-import openai
+
+from agent.loop import run_agent
+from agent.workspace import create_workspace
 
 app = Flask(__name__)
 
-# CONFIGURATION
-client = openai.OpenAI(api_key=os.getenv("DEEPSEEK_KEY"), base_url="https://api.deepseek.com")
+API_KEY  = os.getenv("DEEPSEEK_KEY")
+BASE_URL = os.getenv("BASE_URL", "https://api.deepseek.com")
+MODEL    = os.getenv("MODEL", "deepseek-chat")
 
-# Historique global (tu peux le vider via l'interface)
-messages_history = [{"role": "system", "content": "Tu es Daedalus, un assistant élégant."}]
+_, WORKSPACE = create_workspace()
+messages_history = []
 
 HTML_CODE = """
 <!DOCTYPE html>
@@ -67,7 +70,7 @@ HTML_CODE = """
                 body: JSON.stringify({prompt: text})
             });
             const data = await res.json();
-            
+
             loader.style.display = "none";
             chat.innerHTML += `<div class="msg bot">${data.answer}</div>`;
             chat.scrollTop = chat.scrollHeight;
@@ -81,17 +84,29 @@ HTML_CODE = """
 @app.route('/')
 def home():
     global messages_history
-    messages_history = [{"role": "system", "content": "Tu es Daedalus."}]
+    messages_history = []
     return render_template_string(HTML_CODE)
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    data = request.json
-    messages_history.append({"role": "user", "content": data['prompt']})
-    response = client.chat.completions.create(model="deepseek-chat", messages=messages_history[-10:])
-    answer = response.choices[0].message.content
-    messages_history.append({"role": "assistant", "content": answer})
-    return jsonify({"answer": answer})
+    global messages_history
+    user_msg = request.json.get('prompt', '').strip()
+    if not user_msg:
+        return jsonify({"answer": "Message vide."})
+
+    messages_history.append({"role": "user", "content": user_msg})
+    try:
+        answer, messages_history, _ = run_agent(
+            messages_history,
+            api_key=API_KEY,
+            base_url=BASE_URL,
+            model=MODEL,
+            workspace=WORKSPACE,
+        )
+        return jsonify({"answer": answer})
+    except Exception as e:
+        messages_history.pop()
+        return jsonify({"answer": f"Erreur : {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
