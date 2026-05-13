@@ -1,9 +1,10 @@
+import os
 import openai
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, RichLog, Input
 
 client = openai.OpenAI(
-    api_key="sk-462e17eb90454973a6aaea3c08e04309",
+    api_key=os.getenv("DEEPSEEK_KEY"),
     base_url="https://api.deepseek.com"
 )
 
@@ -38,4 +39,3 @@ class Daedalus(App):
 
 if __name__ == "__main__":
     Daedalus().run()
-
