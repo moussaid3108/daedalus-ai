@@ -1,10 +1,11 @@
+import os
 from flask import Flask, render_template_string, request, jsonify
 import openai
 
 app = Flask(__name__)
 
 # CONFIGURATION
-client = openai.OpenAI(api_key="sk-462e17eb90454973a6aaea3c08e04309", base_url="https://api.deepseek.com")
+client = openai.OpenAI(api_key=os.getenv("DEEPSEEK_KEY"), base_url="https://api.deepseek.com")
 
 # Historique global (tu peux le vider via l'interface)
 messages_history = [{"role": "system", "content": "Tu es Daedalus, un assistant élégant."}]
