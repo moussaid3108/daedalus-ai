@@ -7,6 +7,8 @@ from shop.ebay import search as ebay_search
 from shop.amazon import search as amazon_search
 from shop.cdiscount import search as cdiscount_search
 from shop.booking import search as booking_search
+from shop.skyscanner import search as sky_search
+from shop.fnac import search as fnac_search
 
 app = Flask(__name__)
 
@@ -17,7 +19,7 @@ MODEL    = os.getenv("MODEL", "deepseek-chat")
 _, WORKSPACE = create_workspace()
 messages_history = []
 
-# ── Shop HTML ──────────────────────────────────────────────────────────────────
+# -- HTML ----------------------------------------------------------------------
 
 SHOP_HOME = """<!DOCTYPE html>
 <html lang="fr">
@@ -29,19 +31,21 @@ SHOP_HOME = """<!DOCTYPE html>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
   .logo { font-size: 32px; font-weight: 800; color: #58a6ff; letter-spacing: 3px; margin-bottom: 8px; }
-  .sub { color: #8b949e; font-size: 14px; margin-bottom: 40px; }
-  .search-box { width: 100%; max-width: 560px; }
+  .sub  { color: #8b949e; font-size: 14px; margin-bottom: 40px; }
+  .search-box { width: 100%; max-width: 600px; }
   .search-row { display: flex; gap: 10px; margin-bottom: 12px; }
   input[type=text] { flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 12px; color: #e6edf3; padding: 14px 20px; font-size: 16px; outline: none; transition: border-color .15s; }
   input[type=text]:focus { border-color: #58a6ff; }
   .search-btn { background: #238636; border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 600; padding: 14px 20px; cursor: pointer; }
-  .sources { display: flex; gap: 8px; }
-  .src-btn { flex: 1; padding: 9px 6px; border: 1px solid #30363d; border-radius: 10px; background: #161b22; color: #8b949e; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; text-align: center; }
-  .src-btn.ebay.active     { border-color: #e53238; color: #e53238; }
-  .src-btn.amazon.active   { border-color: #ff9900; color: #ff9900; }
-  .src-btn.cdiscount.active{ border-color: #e8001c; color: #e8001c; }
-  .src-btn.booking.active  { border-color: #003580; color: #003580; }
-  .src-btn.all.active      { border-color: #58a6ff; color: #58a6ff; }
+  .sources { display: flex; flex-wrap: wrap; gap: 8px; }
+  .src-btn { flex: 1; min-width: 80px; padding: 9px 6px; border: 1px solid #30363d; border-radius: 10px; background: #161b22; color: #8b949e; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s; text-align: center; }
+  .src-btn.ebay.active       { border-color: #e53238; color: #e53238; }
+  .src-btn.amazon.active     { border-color: #ff9900; color: #ff9900; }
+  .src-btn.cdiscount.active  { border-color: #e8001c; color: #e8001c; }
+  .src-btn.booking.active    { border-color: #003580; color: #003580; }
+  .src-btn.skyscanner.active { border-color: #00b1ea; color: #00b1ea; }
+  .src-btn.fnac.active       { border-color: #e8a319; color: #e8a319; }
+  .src-btn.all.active        { border-color: #58a6ff; color: #58a6ff; }
   .trending { margin-top: 32px; text-align: center; }
   .trending p { color: #8b949e; font-size: 12px; margin-bottom: 10px; }
   .tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -56,14 +60,16 @@ SHOP_HOME = """<!DOCTYPE html>
     <form id="searchForm" action="/search" method="GET">
       <input type="hidden" name="source" id="sourceInput" value="all">
       <div class="search-row">
-        <input type="text" name="q" placeholder="Produit ou destination..." autofocus autocomplete="off">
+        <input type="text" name="q" placeholder="Produit, destination, vol..." autofocus autocomplete="off">
         <button class="search-btn" type="submit">&#x1F50D;</button>
       </div>
       <div class="sources">
-        <div class="src-btn ebay"      onclick="setSource('ebay')">&#x1F6D2; eBay</div>
-        <div class="src-btn amazon"    onclick="setSource('amazon')">&#x1F4E6; Amazon</div>
-        <div class="src-btn cdiscount" onclick="setSource('cdiscount')">&#x1F3EA; Cdiscount</div>
-        <div class="src-btn booking"   onclick="setSource('booking')">&#x1F3E8; Booking</div>
+        <div class="src-btn ebay"       onclick="setSource('ebay')">&#x1F6D2; eBay</div>
+        <div class="src-btn amazon"     onclick="setSource('amazon')">&#x1F4E6; Amazon</div>
+        <div class="src-btn cdiscount"  onclick="setSource('cdiscount')">&#x1F3EA; Cdiscount</div>
+        <div class="src-btn fnac"       onclick="setSource('fnac')">&#x1F3B5; Fnac</div>
+        <div class="src-btn booking"    onclick="setSource('booking')">&#x1F3E8; Booking</div>
+        <div class="src-btn skyscanner" onclick="setSource('skyscanner')">&#x2708;&#xFE0F; Skyscanner</div>
         <div class="src-btn all active" onclick="setSource('all')">&#x1F50D; Tout</div>
       </div>
     </form>
@@ -71,12 +77,12 @@ SHOP_HOME = """<!DOCTYPE html>
   <div class="trending">
     <p>Tendances</p>
     <div class="tags">
-      <a class="tag" href="/search?q=rolex+occasion&source=ebay">Rolex occasion</a>
       <a class="tag" href="/search?q=iphone+15&source=all">iPhone 15</a>
       <a class="tag" href="/search?q=air+jordan&source=ebay">Air Jordan</a>
       <a class="tag" href="/search?q=playstation+5&source=all">PS5</a>
-      <a class="tag" href="/search?q=paris&source=booking">Hôtels Paris</a>
-      <a class="tag" href="/search?q=barcelone&source=booking">Hôtels Barcelone</a>
+      <a class="tag" href="/search?q=rolex&source=ebay">Rolex</a>
+      <a class="tag" href="/search?q=paris&source=booking">Hotels Paris</a>
+      <a class="tag" href="/search?q=barcelone&source=skyscanner">Vol Barcelone</a>
     </div>
   </div>
   <script>
@@ -94,7 +100,7 @@ SHOP_RESULTS = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>{{ query }} — Daedalus Shop</title>
+<title>{{ query }} -- Daedalus Shop</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -106,11 +112,13 @@ SHOP_RESULTS = """<!DOCTYPE html>
   .search-btn { background: #238636; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 600; padding: 9px 14px; cursor: pointer; }
   .tabs { display: flex; gap: 0; border-bottom: 1px solid #21262d; padding: 0 14px; overflow-x: auto; }
   .tab { padding: 10px 14px; font-size: 13px; font-weight: 600; color: #8b949e; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; }
-  .tab.ebay:hover,      .tab.ebay.active      { color: #e53238; border-color: #e53238; }
-  .tab.amazon:hover,    .tab.amazon.active    { color: #ff9900; border-color: #ff9900; }
-  .tab.cdiscount:hover, .tab.cdiscount.active { color: #e8001c; border-color: #e8001c; }
-  .tab.booking:hover,   .tab.booking.active   { color: #003580; border-color: #003580; }
-  .tab.all:hover,       .tab.all.active       { color: #58a6ff; border-color: #58a6ff; }
+  .tab.ebay:hover,       .tab.ebay.active       { color: #e53238; border-color: #e53238; }
+  .tab.amazon:hover,     .tab.amazon.active     { color: #ff9900; border-color: #ff9900; }
+  .tab.cdiscount:hover,  .tab.cdiscount.active  { color: #e8001c; border-color: #e8001c; }
+  .tab.booking:hover,    .tab.booking.active    { color: #003580; border-color: #003580; }
+  .tab.skyscanner:hover, .tab.skyscanner.active { color: #00b1ea; border-color: #00b1ea; }
+  .tab.fnac:hover,       .tab.fnac.active       { color: #e8a319; border-color: #e8a319; }
+  .tab.all:hover,        .tab.all.active        { color: #58a6ff; border-color: #58a6ff; }
   .meta { padding: 10px 14px; font-size: 12px; color: #8b949e; }
   .section-label { padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #8b949e; }
   .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 12px 16px; }
@@ -118,25 +126,31 @@ SHOP_RESULTS = """<!DOCTYPE html>
   @media(min-width:900px){ .grid { grid-template-columns: repeat(4,1fr); } }
   .card { background: #161b22; border: 1px solid #21262d; border-radius: 12px; overflow: hidden; text-decoration: none; color: inherit; display: flex; flex-direction: column; transition: border-color .15s, transform .15s; }
   .card:hover { transform: translateY(-2px); }
-  .card.ebay:hover      { border-color: #e53238; }
-  .card.amazon:hover    { border-color: #ff9900; }
-  .card.cdiscount:hover { border-color: #e8001c; }
-  .card.booking:hover   { border-color: #003580; }
-  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #0d1117; }
+  .card.ebay:hover       { border-color: #e53238; }
+  .card.amazon:hover     { border-color: #ff9900; }
+  .card.cdiscount:hover  { border-color: #e8001c; }
+  .card.booking:hover    { border-color: #003580; }
+  .card.skyscanner:hover { border-color: #00b1ea; }
+  .card.fnac:hover       { border-color: #e8a319; }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #0d1117; padding: 8px; }
   .no-img { aspect-ratio: 1; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 28px; }
   .card-body { padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 5px; }
   .card-title { font-size: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card-price { font-size: 15px; font-weight: 700; }
-  .card.ebay      .card-price { color: #e53238; }
-  .card.amazon    .card-price { color: #ff9900; }
-  .card.cdiscount .card-price { color: #e8001c; }
-  .card.booking   .card-price { color: #003580; }
+  .card.ebay       .card-price { color: #e53238; }
+  .card.amazon     .card-price { color: #ff9900; }
+  .card.cdiscount  .card-price { color: #e8001c; }
+  .card.booking    .card-price { color: #003580; }
+  .card.skyscanner .card-price { color: #00b1ea; }
+  .card.fnac       .card-price { color: #e8a319; }
   .card-condition { font-size: 11px; color: #8b949e; }
   .card-btn { margin-top: auto; border: none; border-radius: 8px; color: #fff; font-size: 11px; font-weight: 600; padding: 7px; text-align: center; }
-  .card.ebay      .card-btn { background: #e53238; }
-  .card.amazon    .card-btn { background: #ff9900; color: #000; }
-  .card.cdiscount .card-btn { background: #e8001c; }
-  .card.booking   .card-btn { background: #003580; }
+  .card.ebay       .card-btn { background: #e53238; }
+  .card.amazon     .card-btn { background: #ff9900; color: #000; }
+  .card.cdiscount  .card-btn { background: #e8001c; }
+  .card.booking    .card-btn { background: #003580; }
+  .card.skyscanner .card-btn { background: #00b1ea; }
+  .card.fnac       .card-btn { background: #e8a319; color: #000; }
   .error { padding: 40px 20px; text-align: center; color: #ff7b72; font-size: 14px; }
   .empty { padding: 60px 20px; text-align: center; color: #8b949e; }
 </style>
@@ -152,20 +166,22 @@ SHOP_RESULTS = """<!DOCTYPE html>
 </header>
 
 <div class="tabs">
-  <a class="tab all       {% if source=='all'       %}active{% endif %}" href="/search?q={{ query }}&source=all">&#x1F50D; Tout</a>
-  <a class="tab ebay      {% if source=='ebay'      %}active{% endif %}" href="/search?q={{ query }}&source=ebay">&#x1F6D2; eBay</a>
-  <a class="tab amazon    {% if source=='amazon'    %}active{% endif %}" href="/search?q={{ query }}&source=amazon">&#x1F4E6; Amazon</a>
-  <a class="tab cdiscount {% if source=='cdiscount' %}active{% endif %}" href="/search?q={{ query }}&source=cdiscount">&#x1F3EA; Cdiscount</a>
-  <a class="tab booking   {% if source=='booking'   %}active{% endif %}" href="/search?q={{ query }}&source=booking">&#x1F3E8; Booking</a>
+  <a class="tab all        {% if source=='all'        %}active{% endif %}" href="/search?q={{ query }}&source=all">&#x1F50D; Tout</a>
+  <a class="tab ebay       {% if source=='ebay'       %}active{% endif %}" href="/search?q={{ query }}&source=ebay">&#x1F6D2; eBay</a>
+  <a class="tab amazon     {% if source=='amazon'     %}active{% endif %}" href="/search?q={{ query }}&source=amazon">&#x1F4E6; Amazon</a>
+  <a class="tab cdiscount  {% if source=='cdiscount'  %}active{% endif %}" href="/search?q={{ query }}&source=cdiscount">&#x1F3EA; Cdiscount</a>
+  <a class="tab fnac       {% if source=='fnac'       %}active{% endif %}" href="/search?q={{ query }}&source=fnac">&#x1F3B5; Fnac</a>
+  <a class="tab booking    {% if source=='booking'    %}active{% endif %}" href="/search?q={{ query }}&source=booking">&#x1F3E8; Booking</a>
+  <a class="tab skyscanner {% if source=='skyscanner' %}active{% endif %}" href="/search?q={{ query }}&source=skyscanner">&#x2708; Skyscanner</a>
 </div>
 
 {% if error %}
   <div class="error">{{ error }}</div>
-{% elif not ebay_items and not amazon_items and not cdiscount_items and not booking_items %}
-  <div class="empty">Aucun résultat pour "{{ query }}"</div>
+{% elif not ebay_items and not amazon_items and not cdiscount_items and not booking_items and not sky_items and not fnac_items %}
+  <div class="empty">Aucun resultat pour "{{ query }}"</div>
 {% else %}
-  {% set total = ebay_items|length + amazon_items|length + cdiscount_items|length + booking_items|length %}
-  <p class="meta">{{ total }} résultat(s) pour <strong>{{ query }}</strong></p>
+  {% set total = ebay_items|length + amazon_items|length + cdiscount_items|length + booking_items|length + sky_items|length + fnac_items|length %}
+  <p class="meta">{{ total }} resultat(s) pour <strong>{{ query }}</strong></p>
 
   {% if ebay_items %}
     {% if source == 'all' %}<p class="section-label">&#x1F6D2; eBay</p>{% endif %}
@@ -178,7 +194,7 @@ SHOP_RESULTS = """<!DOCTYPE html>
           <p class="card-title">{{ item.title }}</p>
           <p class="card-price">{{ item.price }} {{ item.currency }}</p>
           {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
-          <div class="card-btn">Voir sur eBay →</div>
+          <div class="card-btn">Voir sur eBay</div>
         </div>
       </a>
       {% endfor %}
@@ -195,7 +211,7 @@ SHOP_RESULTS = """<!DOCTYPE html>
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
           <p class="card-price">{{ item.price }}</p>
-          <div class="card-btn">Voir sur Amazon →</div>
+          <div class="card-btn">Voir sur Amazon</div>
         </div>
       </a>
       {% endfor %}
@@ -211,9 +227,27 @@ SHOP_RESULTS = """<!DOCTYPE html>
         {% else %}<div class="no-img">&#x1F4E6;</div>{% endif %}
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
-          <p class="card-price">{{ item.price }} €</p>
+          <p class="card-price">{{ item.price }} EUR</p>
           {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
-          <div class="card-btn">Voir sur Cdiscount →</div>
+          <div class="card-btn">Voir sur Cdiscount</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if fnac_items %}
+    {% if source == 'all' %}<p class="section-label">&#x1F3B5; Fnac</p>{% endif %}
+    <div class="grid">
+      {% for item in fnac_items %}
+      <a class="card fnac" href="{{ item.url }}" target="_blank" rel="noopener">
+        {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
+        {% else %}<div class="no-img">&#x1F3B5;</div>{% endif %}
+        <div class="card-body">
+          <p class="card-title">{{ item.title }}</p>
+          <p class="card-price">{{ item.price }} EUR</p>
+          {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
+          <div class="card-btn">Voir sur Fnac</div>
         </div>
       </a>
       {% endfor %}
@@ -229,10 +263,28 @@ SHOP_RESULTS = """<!DOCTYPE html>
         {% else %}<div class="no-img">&#x1F3E8;</div>{% endif %}
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
-          {% if item.location %}<p class="card-condition">&#x1F4CD; {{ item.location }}</p>{% endif %}
-          {% if item.price %}<p class="card-price">À partir de {{ item.price }} €</p>{% endif %}
+          {% if item.location %}<p class="card-condition">{{ item.location }}</p>{% endif %}
+          {% if item.price %}<p class="card-price">A partir de {{ item.price }} EUR</p>{% endif %}
           {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
-          <div class="card-btn">Réserver sur Booking →</div>
+          <div class="card-btn">Reserver sur Booking</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if sky_items %}
+    {% if source == 'all' %}<p class="section-label">&#x2708; Skyscanner</p>{% endif %}
+    <div class="grid">
+      {% for item in sky_items %}
+      <a class="card skyscanner" href="{{ item.url }}" target="_blank" rel="noopener">
+        {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
+        {% else %}<div class="no-img">&#x2708;</div>{% endif %}
+        <div class="card-body">
+          <p class="card-title">{{ item.title }}</p>
+          {% if item.price %}<p class="card-price">{{ item.price }} EUR</p>{% endif %}
+          {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
+          <div class="card-btn">Voir sur Skyscanner</div>
         </div>
       </a>
       {% endfor %}
@@ -266,11 +318,11 @@ CHAT_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <header><span>DAEDALUS</span><a href="/daedalus" class="btn-reset">EFFACER</a></header>
-  <div id="chat"><div class="msg bot">Prêt, Architecte.</div></div>
-  <div id="loading" class="loading">Daedalus réfléchit...</div>
+  <div id="chat"><div class="msg bot">Pret, Architecte.</div></div>
+  <div id="loading" class="loading">Daedalus reflechit...</div>
   <div class="input-area">
     <input type="text" id="userIn" placeholder="Message..." autocomplete="off">
-    <button onclick="sendMsg()">↑</button>
+    <button onclick="sendMsg()">&#x2191;</button>
   </div>
   <script>
     const chat=document.getElementById('chat'),input=document.getElementById('userIn'),loader=document.getElementById('loading');
@@ -287,7 +339,7 @@ CHAT_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# -- Routes --------------------------------------------------------------------
 
 @app.route("/")
 def home():
@@ -300,7 +352,9 @@ def search():
     if not query:
         return redirect(url_for("home"))
 
-    ebay_items, amazon_items, cdiscount_items, booking_items, error = [], [], [], [], None
+    ebay_items, amazon_items, cdiscount_items = [], [], []
+    booking_items, sky_items, fnac_items = [], [], []
+    error = None
     try:
         if source in ("ebay", "all"):
             ebay_items = ebay_search(query)
@@ -308,8 +362,12 @@ def search():
             amazon_items = amazon_search(query)
         if source in ("cdiscount", "all"):
             cdiscount_items = cdiscount_search(query)
+        if source in ("fnac", "all"):
+            fnac_items = fnac_search(query)
         if source in ("booking", "all"):
             booking_items = booking_search(query)
+        if source == "skyscanner":
+            sky_items = sky_search(query)
     except Exception as e:
         error = str(e)
 
@@ -319,8 +377,10 @@ def search():
         ebay_items=ebay_items,
         amazon_items=amazon_items,
         cdiscount_items=cdiscount_items,
+        fnac_items=fnac_items,
         booking_items=booking_items,
-        error=error
+        sky_items=sky_items,
+        error=error,
     )
 
 @app.route("/daedalus")
