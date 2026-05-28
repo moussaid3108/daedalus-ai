@@ -4,4 +4,3 @@ pyTelegramBotAPI
 requests
 openai
 textual
-paapi5-python-sdk
