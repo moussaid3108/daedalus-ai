@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# bust cache: v2
+# bust cache: v3
 RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
