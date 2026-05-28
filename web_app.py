@@ -6,6 +6,7 @@ from agent.workspace import create_workspace
 from shop.ebay import search as ebay_search
 from shop.amazon import search as amazon_search
 from shop.cdiscount import search as cdiscount_search
+from shop.booking import search as booking_search
 
 app = Flask(__name__)
 
@@ -16,7 +17,7 @@ MODEL    = os.getenv("MODEL", "deepseek-chat")
 _, WORKSPACE = create_workspace()
 messages_history = []
 
-# ── Shop HTML ──────────────────────────────────────────────────────────────────────────────────
+# ── Shop HTML ──────────────────────────────────────────────────────────────────
 
 SHOP_HOME = """<!DOCTYPE html>
 <html lang="fr">
@@ -39,6 +40,7 @@ SHOP_HOME = """<!DOCTYPE html>
   .src-btn.ebay.active     { border-color: #e53238; color: #e53238; }
   .src-btn.amazon.active   { border-color: #ff9900; color: #ff9900; }
   .src-btn.cdiscount.active{ border-color: #e8001c; color: #e8001c; }
+  .src-btn.booking.active  { border-color: #003580; color: #003580; }
   .src-btn.all.active      { border-color: #58a6ff; color: #58a6ff; }
   .trending { margin-top: 32px; text-align: center; }
   .trending p { color: #8b949e; font-size: 12px; margin-bottom: 10px; }
@@ -54,13 +56,14 @@ SHOP_HOME = """<!DOCTYPE html>
     <form id="searchForm" action="/search" method="GET">
       <input type="hidden" name="source" id="sourceInput" value="all">
       <div class="search-row">
-        <input type="text" name="q" placeholder="Rolex, iPhone, Air Jordan..." autofocus autocomplete="off">
-        <button class="search-btn" type="submit">🔍</button>
+        <input type="text" name="q" placeholder="Produit ou destination..." autofocus autocomplete="off">
+        <button class="search-btn" type="submit">&#x1F50D;</button>
       </div>
       <div class="sources">
         <div class="src-btn ebay"      onclick="setSource('ebay')">&#x1F6D2; eBay</div>
         <div class="src-btn amazon"    onclick="setSource('amazon')">&#x1F4E6; Amazon</div>
         <div class="src-btn cdiscount" onclick="setSource('cdiscount')">&#x1F3EA; Cdiscount</div>
+        <div class="src-btn booking"   onclick="setSource('booking')">&#x1F3E8; Booking</div>
         <div class="src-btn all active" onclick="setSource('all')">&#x1F50D; Tout</div>
       </div>
     </form>
@@ -72,8 +75,8 @@ SHOP_HOME = """<!DOCTYPE html>
       <a class="tag" href="/search?q=iphone+15&source=all">iPhone 15</a>
       <a class="tag" href="/search?q=air+jordan&source=ebay">Air Jordan</a>
       <a class="tag" href="/search?q=playstation+5&source=all">PS5</a>
-      <a class="tag" href="/search?q=carte+pokemon&source=ebay">Pokémon</a>
-      <a class="tag" href="/search?q=aspirateur+robot&source=all">Robot aspirateur</a>
+      <a class="tag" href="/search?q=paris&source=booking">Hôtels Paris</a>
+      <a class="tag" href="/search?q=barcelone&source=booking">Hôtels Barcelone</a>
     </div>
   </div>
   <script>
@@ -106,6 +109,7 @@ SHOP_RESULTS = """<!DOCTYPE html>
   .tab.ebay:hover,      .tab.ebay.active      { color: #e53238; border-color: #e53238; }
   .tab.amazon:hover,    .tab.amazon.active    { color: #ff9900; border-color: #ff9900; }
   .tab.cdiscount:hover, .tab.cdiscount.active { color: #e8001c; border-color: #e8001c; }
+  .tab.booking:hover,   .tab.booking.active   { color: #003580; border-color: #003580; }
   .tab.all:hover,       .tab.all.active       { color: #58a6ff; border-color: #58a6ff; }
   .meta { padding: 10px 14px; font-size: 12px; color: #8b949e; }
   .section-label { padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #8b949e; }
@@ -117,6 +121,7 @@ SHOP_RESULTS = """<!DOCTYPE html>
   .card.ebay:hover      { border-color: #e53238; }
   .card.amazon:hover    { border-color: #ff9900; }
   .card.cdiscount:hover { border-color: #e8001c; }
+  .card.booking:hover   { border-color: #003580; }
   .card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #0d1117; }
   .no-img { aspect-ratio: 1; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 28px; }
   .card-body { padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 5px; }
@@ -125,11 +130,13 @@ SHOP_RESULTS = """<!DOCTYPE html>
   .card.ebay      .card-price { color: #e53238; }
   .card.amazon    .card-price { color: #ff9900; }
   .card.cdiscount .card-price { color: #e8001c; }
+  .card.booking   .card-price { color: #003580; }
   .card-condition { font-size: 11px; color: #8b949e; }
   .card-btn { margin-top: auto; border: none; border-radius: 8px; color: #fff; font-size: 11px; font-weight: 600; padding: 7px; text-align: center; }
   .card.ebay      .card-btn { background: #e53238; }
   .card.amazon    .card-btn { background: #ff9900; color: #000; }
   .card.cdiscount .card-btn { background: #e8001c; }
+  .card.booking   .card-btn { background: #003580; }
   .error { padding: 40px 20px; text-align: center; color: #ff7b72; font-size: 14px; }
   .empty { padding: 60px 20px; text-align: center; color: #8b949e; }
 </style>
@@ -140,32 +147,33 @@ SHOP_RESULTS = """<!DOCTYPE html>
   <form action="/search" method="GET">
     <input type="hidden" name="source" value="{{ source }}">
     <input type="text" name="q" value="{{ query }}" autocomplete="off">
-    <button class="search-btn" type="submit">🔍</button>
+    <button class="search-btn" type="submit">&#x1F50D;</button>
   </form>
 </header>
 
 <div class="tabs">
-  <a class="tab all       {% if source=='all'       %}active{% endif %}" href="/search?q={{ query }}&source=all">🔍 Tout</a>
-  <a class="tab ebay      {% if source=='ebay'      %}active{% endif %}" href="/search?q={{ query }}&source=ebay">🛒 eBay</a>
-  <a class="tab amazon    {% if source=='amazon'    %}active{% endif %}" href="/search?q={{ query }}&source=amazon">📦 Amazon</a>
-  <a class="tab cdiscount {% if source=='cdiscount' %}active{% endif %}" href="/search?q={{ query }}&source=cdiscount">🏪 Cdiscount</a>
+  <a class="tab all       {% if source=='all'       %}active{% endif %}" href="/search?q={{ query }}&source=all">&#x1F50D; Tout</a>
+  <a class="tab ebay      {% if source=='ebay'      %}active{% endif %}" href="/search?q={{ query }}&source=ebay">&#x1F6D2; eBay</a>
+  <a class="tab amazon    {% if source=='amazon'    %}active{% endif %}" href="/search?q={{ query }}&source=amazon">&#x1F4E6; Amazon</a>
+  <a class="tab cdiscount {% if source=='cdiscount' %}active{% endif %}" href="/search?q={{ query }}&source=cdiscount">&#x1F3EA; Cdiscount</a>
+  <a class="tab booking   {% if source=='booking'   %}active{% endif %}" href="/search?q={{ query }}&source=booking">&#x1F3E8; Booking</a>
 </div>
 
 {% if error %}
   <div class="error">{{ error }}</div>
-{% elif not ebay_items and not amazon_items and not cdiscount_items %}
+{% elif not ebay_items and not amazon_items and not cdiscount_items and not booking_items %}
   <div class="empty">Aucun résultat pour "{{ query }}"</div>
 {% else %}
-  {% set total = ebay_items|length + amazon_items|length + cdiscount_items|length %}
+  {% set total = ebay_items|length + amazon_items|length + cdiscount_items|length + booking_items|length %}
   <p class="meta">{{ total }} résultat(s) pour <strong>{{ query }}</strong></p>
 
   {% if ebay_items %}
-    {% if source == 'all' %}<p class="section-label">🛒 eBay</p>{% endif %}
+    {% if source == 'all' %}<p class="section-label">&#x1F6D2; eBay</p>{% endif %}
     <div class="grid">
       {% for item in ebay_items %}
       <a class="card ebay" href="{{ item.url }}" target="_blank" rel="noopener">
         {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
-        {% else %}<div class="no-img">📦</div>{% endif %}
+        {% else %}<div class="no-img">&#x1F4E6;</div>{% endif %}
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
           <p class="card-price">{{ item.price }} {{ item.currency }}</p>
@@ -178,12 +186,12 @@ SHOP_RESULTS = """<!DOCTYPE html>
   {% endif %}
 
   {% if amazon_items %}
-    {% if source == 'all' %}<p class="section-label">📦 Amazon</p>{% endif %}
+    {% if source == 'all' %}<p class="section-label">&#x1F4E6; Amazon</p>{% endif %}
     <div class="grid">
       {% for item in amazon_items %}
       <a class="card amazon" href="{{ item.url }}" target="_blank" rel="noopener">
         {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
-        {% else %}<div class="no-img">📦</div>{% endif %}
+        {% else %}<div class="no-img">&#x1F4E6;</div>{% endif %}
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
           <p class="card-price">{{ item.price }}</p>
@@ -195,17 +203,36 @@ SHOP_RESULTS = """<!DOCTYPE html>
   {% endif %}
 
   {% if cdiscount_items %}
-    {% if source == 'all' %}<p class="section-label">🏪 Cdiscount</p>{% endif %}
+    {% if source == 'all' %}<p class="section-label">&#x1F3EA; Cdiscount</p>{% endif %}
     <div class="grid">
       {% for item in cdiscount_items %}
       <a class="card cdiscount" href="{{ item.url }}" target="_blank" rel="noopener">
         {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
-        {% else %}<div class="no-img">📦</div>{% endif %}
+        {% else %}<div class="no-img">&#x1F4E6;</div>{% endif %}
         <div class="card-body">
           <p class="card-title">{{ item.title }}</p>
           <p class="card-price">{{ item.price }} €</p>
           {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
           <div class="card-btn">Voir sur Cdiscount →</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if booking_items %}
+    {% if source == 'all' %}<p class="section-label">&#x1F3E8; Booking</p>{% endif %}
+    <div class="grid">
+      {% for item in booking_items %}
+      <a class="card booking" href="{{ item.url }}" target="_blank" rel="noopener">
+        {% if item.image %}<img src="{{ item.image }}" alt="{{ item.title }}" loading="lazy">
+        {% else %}<div class="no-img">&#x1F3E8;</div>{% endif %}
+        <div class="card-body">
+          <p class="card-title">{{ item.title }}</p>
+          {% if item.location %}<p class="card-condition">&#x1F4CD; {{ item.location }}</p>{% endif %}
+          {% if item.price %}<p class="card-price">À partir de {{ item.price }} €</p>{% endif %}
+          {% if item.condition %}<p class="card-condition">{{ item.condition }}</p>{% endif %}
+          <div class="card-btn">Réserver sur Booking →</div>
         </div>
       </a>
       {% endfor %}
@@ -260,7 +287,7 @@ CHAT_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# ── Routes ──────────────────────────────────────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def home():
@@ -273,7 +300,7 @@ def search():
     if not query:
         return redirect(url_for("home"))
 
-    ebay_items, amazon_items, cdiscount_items, error = [], [], [], None
+    ebay_items, amazon_items, cdiscount_items, booking_items, error = [], [], [], [], None
     try:
         if source in ("ebay", "all"):
             ebay_items = ebay_search(query)
@@ -281,6 +308,8 @@ def search():
             amazon_items = amazon_search(query)
         if source in ("cdiscount", "all"):
             cdiscount_items = cdiscount_search(query)
+        if source in ("booking", "all"):
+            booking_items = booking_search(query)
     except Exception as e:
         error = str(e)
 
@@ -290,6 +319,7 @@ def search():
         ebay_items=ebay_items,
         amazon_items=amazon_items,
         cdiscount_items=cdiscount_items,
+        booking_items=booking_items,
         error=error
     )
 
