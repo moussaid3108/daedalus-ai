@@ -16,7 +16,11 @@ API_KEY  = os.getenv("DEEPSEEK_KEY")
 BASE_URL = os.getenv("BASE_URL", "https://api.deepseek.com")
 MODEL    = os.getenv("MODEL", "deepseek-chat")
 
-_, WORKSPACE = create_workspace()
+try:
+    _, WORKSPACE = create_workspace()
+except Exception:
+    WORKSPACE = "/tmp/daedalus_fallback"
+    os.makedirs(WORKSPACE, exist_ok=True)
 messages_history = []
 
 # -- HTML ----------------------------------------------------------------------
