@@ -1,3 +1,2 @@
 #!/bin/sh
-python tele.py &
-python web_app.py
+python app.py
