@@ -1,6 +1,5 @@
 flask
-python-dotenv
-pyTelegramBotAPI
+flask-sqlalchemy
+werkzeug
 requests
-openai
-textual
+python-dotenv
