@@ -29,6 +29,8 @@ class Procedure(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     type       = db.Column(db.String(50), nullable=False)
+    phase      = db.Column(db.Integer, nullable=True)   # 1/2/3 pour dissolution, None pour création
+    parent_id  = db.Column(db.Integer, db.ForeignKey("procedure.id"), nullable=True)
     societe    = db.Column(db.String(200), default="")
     status     = db.Column(db.String(50), default="formulaire")
     data       = db.Column(db.Text, default="{}")
@@ -36,6 +38,7 @@ class Procedure(db.Model):
     ref        = db.Column(db.String(20), unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    children   = db.relationship("Procedure", backref=db.backref("parent", remote_side="Procedure.id"), lazy=True)
 
 with app.app_context():
     db.create_all()
@@ -58,11 +61,14 @@ def get_user():
         return User.query.get(session["user_id"])
     return None
 
-def make_ref(type_, id_):
+def make_ref(type_, id_, phase=None):
     prefix = "DIS" if type_ == "dissolution" else "CRE"
+    if phase:
+        return f"{prefix}-P{phase}-{datetime.now().year}-{id_:04d}"
     return f"{prefix}-{datetime.now().year}-{id_:04d}"
 
 STATUS = {
+    "en_attente": ("🔒", "En attente",  "#64748B"),
     "formulaire": ("📝", "Formulaire",  "#F59E0B"),
     "documents":  ("📄", "Documents",   "#3B82F6"),
     "signature":  ("✍️",  "Signature",   "#8B5CF6"),
@@ -219,7 +225,7 @@ LANDING = """
   background:linear-gradient(135deg,var(--gold),var(--gold2));
   -webkit-background-clip:text;-webkit-text-fill-color:transparent
 }
-.hero p{font-size:18px;color:var(--text2);max-width:600px;margin:0 auto 40px;line-height:1.6}
+.hero p{font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 40px;line-height:1.6}
 .hero-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 .hero-badge{
   display:inline-flex;align-items:center;gap:8px;
@@ -270,14 +276,6 @@ LANDING = """
 .trust-item{text-align:center}
 .trust-val{font-size:28px;font-weight:800;color:var(--gold)}
 .trust-lbl{font-size:13px;color:var(--text2);margin-top:4px}
-.cmp-table{width:100%;border-collapse:collapse;font-size:14px}
-.cmp-table thead tr{border-bottom:1px solid var(--border)}
-.cmp-table th{padding:14px 24px;color:var(--text2);font-weight:600;text-align:left}
-.cmp-table th:not(:first-child){text-align:center}
-.cmp-table td{padding:13px 24px}
-.cmp-table td:not(:first-child){text-align:center}
-.cmp-table tr{border-bottom:1px solid rgba(30,58,90,.5)}
-.cmp-table tr:last-child{border:none}
 footer{
   text-align:center;padding:40px 0;color:var(--text3);
   font-size:13px;border-top:1px solid var(--border);margin-top:60px
@@ -313,7 +311,7 @@ footer{
       <p>Fermez votre société en toute sérénité. Générez vos documents via nos modèles, signez en ligne — nous déposons le dossier à l'INPI en tant que mandataire.</p>
       <div class="service-price">299€ <span>TTC tout inclus</span></div>
       <ul class="service-features">
-        <li>PV d'Assemblée Générale (modèle)</li>
+        <li>PV d'Assemblée Générale</li>
         <li>Annonce légale incluse</li>
         <li>Signature électronique eIDAS</li>
         <li>Dépôt Guichet Unique INPI</li>
@@ -344,23 +342,23 @@ footer{
   <div class="how-grid">
     <div class="how-card">
       <div class="how-num">1</div>
-      <h4>Questionnaire en ligne</h4>
-      <p>Répondez à quelques questions sur votre société en 5 minutes</p>
+      <h4>Formulaire en ligne</h4>
+      <p>Remplissez les infos de votre société en 5 minutes</p>
     </div>
     <div class="how-card">
       <div class="how-num">2</div>
-      <h4>Génération des modèles</h4>
-      <p>Vos modèles de documents légaux sont générés automatiquement — vous les vérifiez et validez</p>
+      <h4>Génération des documents</h4>
+      <p>Vos PV et documents légaux générés automatiquement</p>
     </div>
     <div class="how-card">
       <div class="how-num">3</div>
       <h4>Signature électronique</h4>
-      <p>Signez en ligne avec votre téléphone — valeur juridique eIDAS qualifiée</p>
+      <p>Signez en ligne avec votre téléphone — valeur juridique eIDAS</p>
     </div>
     <div class="how-card">
       <div class="how-num">4</div>
       <h4>Dépôt INPI</h4>
-      <p>Nous déposons à votre place sur le Guichet Unique INPI en tant que mandataire</p>
+      <p>Nous déposons à votre place sur le Guichet Unique INPI</p>
     </div>
   </div>
 </div>
@@ -382,7 +380,7 @@ footer{
       <div style="font-size:40px;margin-bottom:16px">🚀</div>
       <h3 style="font-size:20px;margin-bottom:8px">Création</h3>
       <div style="font-size:48px;font-weight:800;color:var(--blue);margin:16px 0">499€</div>
-      <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Modèles + annonce légale + INPI</p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Statuts + annonce légale + INPI</p>
       <a class="btn" style="width:100%;justify-content:center;background:var(--blue);color:#fff" href="/creation">Commencer</a>
     </div>
   </div>
@@ -407,44 +405,44 @@ footer{
         <span style="font-weight:700;font-size:16px">Dissolution & Radiation</span>
       </div>
       <div style="overflow-x:auto">
-        <table class="cmp-table">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead>
-            <tr>
-              <th>Prestation</th>
-              <th style="color:var(--text2)">Concurrents</th>
-              <th style="color:var(--gold)">INPIrequest</th>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:14px 24px;color:var(--text2);font-weight:600">Prestation</th>
+              <th style="text-align:center;padding:14px 16px;color:var(--text2);font-weight:600">Concurrents</th>
+              <th style="text-align:center;padding:14px 16px;color:var(--gold);font-weight:700">INPIrequest</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Honoraires de traitement</td>
-              <td style="color:var(--text2)">~100€</td>
-              <td style="color:var(--gold);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Honoraires de traitement</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~100€</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--gold);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Annonce légale (dissolution)</td>
-              <td style="color:var(--text2)">~180€ en sus</td>
-              <td style="color:var(--gold);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Annonce légale (dissolution)</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~180€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--gold);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Dépôt Guichet Unique INPI</td>
-              <td style="color:var(--text2)">~50€ en sus</td>
-              <td style="color:var(--gold);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Dépôt Guichet Unique INPI</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~50€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--gold);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Signature électronique eIDAS</td>
-              <td style="color:var(--text2)">~30€ en sus</td>
-              <td style="color:var(--gold);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Signature électronique eIDAS</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~30€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--gold);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Génération modèles PV & documents</td>
-              <td style="color:var(--red)">✗ non inclus</td>
-              <td style="color:var(--gold);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Génération PV & documents légaux</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--red)">✗ non inclus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--gold);font-weight:600">inclus</td>
             </tr>
             <tr style="background:rgba(201,168,76,.06)">
-              <td style="font-weight:700">Total réel</td>
-              <td style="font-weight:800;color:var(--red);font-size:18px">~360€+</td>
-              <td style="font-weight:800;color:var(--gold);font-size:18px">299€</td>
+              <td style="padding:14px 24px;font-weight:700">Total réel</td>
+              <td style="text-align:center;padding:14px 16px;font-weight:800;color:var(--red);font-size:18px">~360€+</td>
+              <td style="text-align:center;padding:14px 16px;font-weight:800;color:var(--gold);font-size:18px">299€</td>
             </tr>
           </tbody>
         </table>
@@ -459,49 +457,49 @@ footer{
         <span style="font-weight:700;font-size:16px">Création de société</span>
       </div>
       <div style="overflow-x:auto">
-        <table class="cmp-table">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead>
-            <tr>
-              <th>Prestation</th>
-              <th style="color:var(--text2)">Concurrents</th>
-              <th style="color:var(--blue)">INPIrequest</th>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:14px 24px;color:var(--text2);font-weight:600">Prestation</th>
+              <th style="text-align:center;padding:14px 16px;color:var(--text2);font-weight:600">Concurrents</th>
+              <th style="text-align:center;padding:14px 16px;color:var(--blue);font-weight:700">INPIrequest</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Honoraires de traitement</td>
-              <td style="color:var(--text2)">~199€</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Honoraires de traitement</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~199€</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Modèles de statuts standardisés</td>
-              <td style="color:var(--text2)">~100€ en sus</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Modèles de statuts standardisés</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~100€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Annonce légale (constitution)</td>
-              <td style="color:var(--text2)">~180€ en sus</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Annonce légale (constitution)</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~180€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Dépôt INPI + Kbis</td>
-              <td style="color:var(--text2)">~50€ en sus</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Dépôt INPI + Kbis</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~50€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Signature électronique eIDAS</td>
-              <td style="color:var(--text2)">~30€ en sus</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Signature électronique eIDAS</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--text2)">~30€ en sus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
-            <tr>
-              <td>Accompagnement dédié</td>
-              <td style="color:var(--red)">✗ non inclus</td>
-              <td style="color:var(--blue);font-weight:600">inclus</td>
+            <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+              <td style="padding:13px 24px">Accompagnement dédié</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--red)">✗ non inclus</td>
+              <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
             <tr style="background:rgba(59,130,246,.06)">
-              <td style="font-weight:700">Total réel</td>
-              <td style="font-weight:800;color:var(--red);font-size:18px">~559€+</td>
-              <td style="font-weight:800;color:var(--blue);font-size:18px">499€</td>
+              <td style="padding:14px 24px;font-weight:700">Total réel</td>
+              <td style="text-align:center;padding:14px 16px;font-weight:800;color:var(--red);font-size:18px">~559€+</td>
+              <td style="text-align:center;padding:14px 16px;font-weight:800;color:var(--blue);font-size:18px">499€</td>
             </tr>
           </tbody>
         </table>
@@ -563,7 +561,7 @@ DISSOLUTION_HTML = """
   <div style="text-align:center;margin-bottom:48px">
     <div style="font-size:13px;color:var(--gold);font-weight:600;margin-bottom:8px;letter-spacing:1px">DISSOLUTION & RADIATION</div>
     <h1 style="font-size:32px;font-weight:800;margin-bottom:10px">Fermer votre société</h1>
-    <p style="color:var(--text2)">Répondez au questionnaire — vos modèles de documents sont générés automatiquement</p>
+    <p style="color:var(--text2)">Remplissez le formulaire, on s'occupe du reste</p>
   </div>
 
   <div class="steps" id="steps">
@@ -609,7 +607,7 @@ DISSOLUTION_HTML = """
             <input type="number" name="capital" placeholder="1000" min="1" required>
           </div>
           <div class="form-group">
-            <label>Date de l'AGE dissolution *</label>
+            <label>Date de l'AGE *</label>
             <input type="date" name="date_age" required>
           </div>
         </div>
@@ -658,10 +656,10 @@ DISSOLUTION_HTML = """
       <div class="step-panel card" id="panel3">
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Liquidateur amiable</h3>
         <p style="color:var(--text2);font-size:14px;margin-bottom:24px">
-          Nommé par l'AG dissolution — le gérant devient liquidateur et perd ses fonctions de dirigeant.
+          Le liquidateur est nommé pour gérer la clôture. Il peut être le gérant lui-même.
         </p>
         <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gold)">
-          💡 Dans la plupart des cas, le gérant est nommé liquidateur. Le modèle de PV le mentionne explicitement.
+          💡 Par défaut, le gérant est nommé liquidateur. Vous pouvez changer si nécessaire.
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -678,13 +676,13 @@ DISSOLUTION_HTML = """
           <input type="text" name="liq_adresse" placeholder="5 avenue des Fleurs, 75008 Paris" required>
         </div>
         <div class="form-group">
-          <label>Email du liquidateur * <span style="color:var(--text3)">(pour la signature électronique eIDAS)</span></label>
+          <label>Email du liquidateur * <span style="color:var(--text3)">(pour la signature électronique)</span></label>
           <input type="email" name="liq_email" placeholder="liquidateur@email.com" required>
         </div>
         <div class="divider"></div>
-        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents à fournir après validation</h3>
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents à fournir</h3>
         <p style="color:var(--text2);font-size:14px;margin-bottom:16px">
-          Fournis par votre comptable — à uploader dans votre espace après le paiement.
+          Ces documents sont fournis par votre comptable. Vous pourrez les uploader après le paiement.
         </p>
         <div style="display:flex;flex-direction:column;gap:10px">
           <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card2);border-radius:10px;font-size:14px">
@@ -767,14 +765,16 @@ function prev(s) { back(s, s-1); }
 function showRecap() {
   if (!validate(3)) return;
   const get = n => document.querySelector(`[name="${n}"]`)?.value || '';
+  const formes = {'SAS':'SAS','SARL':'SARL','SCI':'SCI','EURL':'EURL','SA':'SA','SASU':'SASU'};
+  const forme = get('forme');
   const rows = [
-    ['Société', get('nom_societe') + ' ' + get('forme')],
+    ['Société', get('nom_societe') + ' ' + forme],
     ['SIREN', get('siren')],
     ['Siège social', get('adresse')],
     ['Capital', get('capital') + ' €'],
-    ['Date AGE dissolution', get('date_age')],
+    ['Date AGE', get('date_age')],
     ['Gérant', get('gerant_prenom') + ' ' + get('gerant_nom')],
-    ['Liquidateur désigné', get('liq_prenom') + ' ' + get('liq_nom')],
+    ['Liquidateur', get('liq_prenom') + ' ' + get('liq_nom')],
     ['Email liquidateur', get('liq_email')],
     ['Boni de liquidation', get('boni') + ' €'],
   ];
@@ -809,7 +809,7 @@ CREATION_HTML = """
   <div style="text-align:center;margin-bottom:48px">
     <div style="font-size:13px;color:var(--blue);font-weight:600;margin-bottom:8px;letter-spacing:1px">CRÉATION DE SOCIÉTÉ</div>
     <h1 style="font-size:32px;font-weight:800;margin-bottom:10px">Créer votre société</h1>
-    <p style="color:var(--text2)">Choisissez votre forme juridique et renseignez vos informations — vos modèles de statuts sont générés automatiquement</p>
+    <p style="color:var(--text2)">Choisissez votre forme juridique et renseignez vos informations</p>
   </div>
 
   <div class="steps">
@@ -912,7 +912,7 @@ CREATION_HTML = """
           <input type="text" name="dir_adresse" placeholder="5 avenue des Fleurs, 75008 Paris" required>
         </div>
         <div class="form-group">
-          <label>Email * <span style="color:var(--text3)">(pour la signature électronique eIDAS)</span></label>
+          <label>Email * <span style="color:var(--text3)">(pour la signature électronique)</span></label>
           <input type="email" name="dir_email" placeholder="dirigeant@email.com" required>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:8px">
@@ -930,7 +930,7 @@ CREATION_HTML = """
             <span style="font-weight:600">Total à payer</span>
             <span style="font-size:28px;font-weight:800;color:var(--blue)">499€ TTC</span>
           </div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px">Modèles de statuts + annonce légale + frais INPI + signature eIDAS inclus</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px">Statuts + annonce légale + frais INPI + signature eIDAS inclus</p>
         </div>
         <input type="hidden" name="type" value="creation">
         <div style="display:flex;justify-content:space-between">
@@ -1012,6 +1012,32 @@ function cshowRecap(){
 # DASHBOARD
 # ──────────────────────────────────────────────────────────────────
 
+def _phase_tracker(p):
+    """Mini 3-step progress bar for dissolution dossiers (called with root P1)."""
+    phases = [p] + sorted(p.children, key=lambda c: c.phase or 0)
+    ph_labels = ["Dissolution", "Liquidation", "Clôture"]
+    parts = []
+    for i, (ph, pl) in enumerate(zip(phases, ph_labels)):
+        ph_ico, _, ph_col = STATUS.get(ph.status, ("📝","","#94A3B8"))
+        locked = ph.status == "en_attente"
+        dot_col = "#475569" if locked else ph_col
+        icon    = "🔒" if locked else ph_ico
+        label_col = "var(--text3)" if locked else "var(--text2)"
+        dot = (f'<a href="/procedure/{ph.id}" style="display:flex;flex-direction:column;'
+               f'align-items:center;gap:3px;text-decoration:none;min-width:60px">'
+               f'<div style="width:26px;height:26px;border-radius:50%;background:{dot_col}22;'
+               f'border:2px solid {dot_col};display:flex;align-items:center;'
+               f'justify-content:center;font-size:11px">{icon}</div>'
+               f'<span style="font-size:10px;color:{label_col};white-space:nowrap">P{i+1} {pl}</span>'
+               f'</a>')
+        parts.append(dot)
+        if i < len(phases) - 1:
+            line_col = "#10B981" if phases[i].status == "termine" else "var(--border)"
+            parts.append(f'<div style="flex:1;height:2px;background:{line_col};margin-bottom:13px"></div>')
+    return ('<div style="display:flex;align-items:center;gap:0;margin-top:10px">'
+            + "".join(parts) + "</div>")
+
+
 def dashboard_html(user, procedures):
     nb_total    = len(procedures)
     nb_termine  = sum(1 for p in procedures if p.status == "termine")
@@ -1023,6 +1049,7 @@ def dashboard_html(user, procedures):
         typ_lbl = "Dissolution" if p.type == "dissolution" else "Création"
         typ_col = "#EF4444" if p.type == "dissolution" else "#3B82F6"
         date = p.created_at.strftime("%d/%m/%Y")
+        tracker = _phase_tracker(p) if p.type == "dissolution" and p.phase == 1 else ""
         rows += f"""
         <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;
              background:var(--card2);border-radius:12px;border:1px solid var(--border)">
@@ -1034,6 +1061,7 @@ def dashboard_html(user, procedures):
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;margin-bottom:3px">{p.societe or "—"}</div>
             <div style="font-size:12px;color:var(--text2)">{p.ref or "—"} · {date}</div>
+            {tracker}
           </div>
           <span class="badge" style="background:rgba(0,0,0,.3);border:1px solid {typ_col}33;color:{typ_col}">{typ_lbl}</span>
           <span class="badge" style="background:rgba(0,0,0,.3);border:1px solid {col}33;color:{col}">{ico} {lbl}</span>
@@ -1089,27 +1117,61 @@ def dashboard_html(user, procedures):
 # PROCEDURE DETAIL
 # ──────────────────────────────────────────────────────────────────
 
-def procedure_detail_html(p):
-    ico, lbl, col = STATUS.get(p.status, ("📝","En cours","#94A3B8"))
-    data = json.loads(p.data or "{}")
-    typ = "Dissolution & Radiation" if p.type == "dissolution" else "Création de société"
+PHASE_META = {
+    1: {
+        "label": "Phase 1 — Dissolution",
+        "desc":  "Convocation AGE · Annonce légale · Dépôt M2 au Guichet Unique",
+        "docs": [
+            ("PV AGE extraordinaire (dissolution)", "Modèle standardisé fourni", True),
+            ("Formulaire M2", "Généré automatiquement", True),
+            ("Mandat mandataire", "Généré automatiquement", True),
+            ("Annonce légale de dissolution", "Commandée automatiquement", True),
+        ],
+        "timeline_done": ("✅","Terminé","Dissolution enregistrée à l'INPI"),
+    },
+    2: {
+        "label": "Phase 2 — Liquidation",
+        "desc":  "Opérations de liquidation · Documents comptables",
+        "docs": [
+            ("Rapport du liquidateur", "À rédiger par le liquidateur désigné", False),
+            ("Bilan de liquidation", "À fournir par votre comptable", False),
+            ("Attestation de régularité fiscale", "À obtenir auprès des impôts", False),
+            ("Attestation URSSAF", "À fournir par votre comptable", False),
+        ],
+        "timeline_done": ("✅","Terminé","Liquidation terminée"),
+    },
+    3: {
+        "label": "Phase 3 — Clôture & Radiation",
+        "desc":  "Convocation AGE clôture · Annonce légale · Dépôt M4 · Radiation INPI",
+        "docs": [
+            ("PV AGE de clôture de liquidation", "Modèle standardisé fourni", True),
+            ("Formulaire M4", "Généré automatiquement", True),
+            ("Mandat mandataire", "Généré automatiquement", True),
+            ("Annonce légale de clôture", "Commandée automatiquement", True),
+        ],
+        "timeline_done": ("✅","Terminé","Radiation enregistrée — Kbis de radiation disponible"),
+    },
+}
 
+
+def _build_timeline(p, col):
     steps_order = ["formulaire","documents","signature","paiement","depose","termine"]
     cur_idx = steps_order.index(p.status) if p.status in steps_order else 0
-
-    timeline = ""
+    phase = p.phase
+    done_label = PHASE_META[phase]["timeline_done"] if phase and phase in PHASE_META else ("✅","Terminé","Dossier terminé")
     labels = {
-        "formulaire": ("📝","Questionnaire reçu","Votre dossier a été créé"),
-        "documents":  ("📄","Documents","En attente de vos documents comptables"),
-        "signature":  ("✍️","Signature eIDAS","Modèles envoyés pour signature qualifiée"),
-        "paiement":   ("💳","Paiement","En attente de paiement"),
+        "formulaire": ("📝","Formulaire reçu","Votre dossier a été créé"),
+        "documents":  ("📄","Documents","En attente de vos documents"),
+        "signature":  ("✍️","Signature","Documents envoyés pour signature eIDAS"),
+        "paiement":   ("💳","Paiement","En attente de règlement"),
         "depose":     ("⚙️","Déposé à l'INPI","Dossier déposé sur le Guichet Unique"),
-        "termine":    ("✅","Terminé","Radiation/Kbis disponible"),
+        "termine":    done_label,
     }
+    timeline = ""
     for i, s in enumerate(steps_order):
         e, t, d = labels[s]
         done = i <= cur_idx
-        c = col if i == cur_idx else ("#10B981" if done else "var(--border)")
+        c  = col if i == cur_idx else ("#10B981" if done else "var(--border)")
         tc = col if i == cur_idx else ("#10B981" if done else "var(--text3)")
         timeline += f"""
         <div style="display:flex;gap:16px;align-items:flex-start">
@@ -1124,25 +1186,13 @@ def procedure_detail_html(p):
             <div style="font-size:13px;color:var(--text2);margin-top:2px">{d}</div>
           </div>
         </div>"""
+    return timeline
 
+
+def _build_doc_rows(docs_needed):
     doc_rows = ""
-    docs_needed = [
-        ("Modèle de PV d'AG dissolution", "Généré depuis nos modèles standardisés", True),
-        ("Formulaire M2 (modification)", "Généré automatiquement", True),
-        ("Mandat mandataire signé", "Généré automatiquement — à signer", True),
-        ("Bilan de liquidation", "À fournir par votre comptable", False),
-        ("Attestation fiscale (TVA + IS)", "À fournir par votre comptable", False),
-        ("Attestation de parution (annonce légale)", "Fournie par le journal — pas la facture", False),
-    ] if p.type == "dissolution" else [
-        ("Modèle de statuts", "Généré depuis nos modèles standardisés — à valider", True),
-        ("Formulaire M0 (immatriculation)", "Généré automatiquement", True),
-        ("Mandat mandataire signé", "Généré automatiquement — à signer", True),
-        ("Attestation de dépôt du capital", "À fournir par votre banque", False),
-        ("Attestation de parution (annonce légale)", "Commandée automatiquement", True),
-    ]
-
     for name, origin, auto in docs_needed:
-        icon = "✅" if auto else "⏳"
+        icon  = "✅" if auto else "⏳"
         color = "var(--green)" if auto else "var(--orange)"
         doc_rows += f"""
         <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;
@@ -1156,6 +1206,125 @@ def procedure_detail_html(p):
             {"Disponible" if auto else "En attente"}
           </span>
         </div>"""
+    return doc_rows
+
+
+def _phase_nav_bar(p):
+    """Navigation between dissolution phases — returns HTML string."""
+    root = p.parent if p.parent else p
+    all_phases = [root] + sorted(root.children, key=lambda c: c.phase or 0)
+    ph_names = {1: "Dissolution", 2: "Liquidation", 3: "Clôture"}
+    nav_items = ""
+    for ph in all_phases:
+        ph_ico, _, ph_col = STATUS.get(ph.status, ("📝","","#94A3B8"))
+        locked = ph.status == "en_attente"
+        is_current = ph.id == p.id
+        dot_col = "#475569" if locked else ph_col
+        icon    = "🔒" if locked else ph_ico
+        bg      = f"background:{dot_col}15;border:1px solid {dot_col}44;" if is_current else "border:1px solid transparent;"
+        nav_items += (
+            f'<a href="/procedure/{ph.id}" style="display:flex;align-items:center;gap:8px;'
+            f'padding:8px 14px;border-radius:8px;text-decoration:none;{bg}'
+            f'color:{"var(--gold)" if is_current else "var(--text2)"};font-size:13px;font-weight:{"700" if is_current else "400"}">'
+            f'<span>{icon}</span>'
+            f'<span>P{ph.phase} — {ph_names.get(ph.phase, "")}</span>'
+            f'</a>'
+        )
+    return (
+        '<div style="display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);'
+        'border-radius:10px;padding:4px;margin-bottom:28px;flex-wrap:wrap">'
+        + nav_items + '</div>'
+    )
+
+
+def procedure_detail_html(p):
+    ico, lbl, col = STATUS.get(p.status, ("📝","En cours","#94A3B8"))
+    data = json.loads(p.data or "{}")
+
+    # ── Dissolution avec phases ─────────────────────────────────────
+    if p.type == "dissolution" and p.phase:
+        meta = PHASE_META.get(p.phase, {})
+        phase_label = meta.get("label", f"Phase {p.phase}")
+        phase_desc  = meta.get("desc", "")
+        docs_needed = meta.get("docs", [])
+
+        phase_nav = _phase_nav_bar(p)
+
+        if p.status == "en_attente":
+            prev_phase = p.phase - 1
+            locked_block = f"""
+            <div style="text-align:center;padding:60px 20px">
+              <div style="font-size:48px;margin-bottom:16px">🔒</div>
+              <p style="font-size:16px;font-weight:600;margin-bottom:8px">Phase verrouillée</p>
+              <p style="color:var(--text2);font-size:14px">
+                Cette phase sera débloquée automatiquement une fois la
+                <strong>Phase {prev_phase}</strong> marquée comme terminée.
+              </p>
+            </div>"""
+            content_block = f"""
+            <div class="grid2" style="align-items:start">
+              <div class="card">{locked_block}</div>
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents de cette phase</h3>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  {_build_doc_rows(docs_needed)}
+                </div>
+              </div>
+            </div>"""
+        else:
+            timeline = _build_timeline(p, col)
+            doc_rows = _build_doc_rows(docs_needed)
+            content_block = f"""
+            <div class="grid2" style="align-items:start">
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:20px">Suivi</h3>
+                {timeline}
+              </div>
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents</h3>
+                <div style="display:flex;flex-direction:column;gap:8px">{doc_rows}</div>
+              </div>
+            </div>"""
+
+        return f"""
+<div style="padding:48px 0 80px">
+  <a href="/dashboard" style="color:var(--text2);font-size:14px;display:inline-flex;
+     align-items:center;gap:6px;margin-bottom:28px">← Retour au dashboard</a>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;
+       flex-wrap:wrap;gap:20px;margin-bottom:24px">
+    <div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:4px">{p.ref or "—"}</div>
+      <h1 style="font-size:26px;font-weight:800;margin-bottom:6px">{p.societe or "—"}</h1>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">{phase_label} · {phase_desc}</p>
+      <span class="badge" style="background:{col}22;border:1px solid {col}44;color:{col};font-size:13px">
+        {ico} {lbl}
+      </span>
+    </div>
+    <div class="card" style="padding:20px 28px;text-align:right;min-width:180px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Prestation totale</div>
+      <div style="font-weight:700;font-size:15px">Dissolution complète (3 phases)</div>
+      <div style="font-size:24px;font-weight:800;color:var(--gold);margin-top:8px">
+        {int(p.prix if p.phase == 1 else (p.parent.prix if p.parent else 0))}€
+      </div>
+    </div>
+  </div>
+
+  {phase_nav}
+  {content_block}
+</div>"""
+
+    # ── Création (ou dissolution legacy sans phase) ─────────────────
+    typ = "Création de société"
+    timeline = _build_timeline(p, col)
+    docs_needed = [
+        ("Statuts de la société", "Modèle standardisé fourni", True),
+        ("Formulaire M0", "Généré automatiquement", True),
+        ("Mandat mandataire", "Généré automatiquement", True),
+        ("Attestation de dépôt capital", "À fournir par votre banque", False),
+        ("Annonce légale de constitution", "Commandée automatiquement", True),
+    ]
+    doc_rows = _build_doc_rows(docs_needed)
 
     return f"""
 <div style="padding:48px 0 80px">
@@ -1271,7 +1440,8 @@ def logout():
 @login_required
 def dashboard():
     u = get_user()
-    procs = Procedure.query.filter_by(user_id=u.id).order_by(Procedure.created_at.desc()).all()
+    # N'afficher que les procédures racines (pas les phases 2/3 qui sont des enfants)
+    procs = Procedure.query.filter_by(user_id=u.id, parent_id=None).order_by(Procedure.created_at.desc()).all()
     return base("Dashboard", dashboard_html(u, procs), u)
 
 
@@ -1281,19 +1451,42 @@ def dissolution():
     if request.method == "POST":
         u = get_user()
         nom = request.form.get("nom_societe","").strip()
-        data = {k: v for k, v in request.form.items() if k != "type"}
-        p = Procedure(
-            user_id=u.id, type="dissolution",
-            societe=f"{nom} {request.form.get('forme','')}".strip(),
-            status="documents", data=json.dumps(data),
+        societe = f"{nom} {request.form.get('forme','')}".strip()
+        data = json.dumps({k: v for k, v in request.form.items() if k != "type"})
+
+        # Phase 1 — Dissolution (AG + annonce légale dissolution + dépôt M2)
+        p1 = Procedure(
+            user_id=u.id, type="dissolution", phase=1,
+            societe=societe, status="documents", data=data,
             prix=PRIX["dissolution"]
         )
-        db.session.add(p)
+        db.session.add(p1)
         db.session.flush()
-        p.ref = make_ref("dissolution", p.id)
+        p1.ref = make_ref("dissolution", p1.id, phase=1)
+
+        # Phase 2 — Liquidation (période intermédiaire — débloquée après phase 1 terminée)
+        p2 = Procedure(
+            user_id=u.id, type="dissolution", phase=2,
+            parent_id=p1.id, societe=societe, status="en_attente",
+            data=data, prix=0
+        )
+        db.session.add(p2)
+        db.session.flush()
+        p2.ref = make_ref("dissolution", p2.id, phase=2)
+
+        # Phase 3 — Clôture & Radiation (AG clôture + annonce légale clôture + dépôt M4)
+        p3 = Procedure(
+            user_id=u.id, type="dissolution", phase=3,
+            parent_id=p1.id, societe=societe, status="en_attente",
+            data=data, prix=0
+        )
+        db.session.add(p3)
+        db.session.flush()
+        p3.ref = make_ref("dissolution", p3.id, phase=3)
+
         db.session.commit()
-        flash("Dossier créé ! Vos documents sont générés depuis nos modèles standardisés.", "success")
-        return redirect(url_for("procedure", id=p.id))
+        flash("Dossier créé en 3 phases ! Commencez par la Phase 1 — Dissolution.", "success")
+        return redirect(url_for("procedure", id=p1.id))
     return base("Dissolution", DISSOLUTION_HTML)
 
 
