@@ -29,6 +29,8 @@ class Procedure(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     type       = db.Column(db.String(50), nullable=False)
+    phase      = db.Column(db.Integer, nullable=True)   # 1/2/3 pour dissolution, None pour création
+    parent_id  = db.Column(db.Integer, db.ForeignKey("procedure.id"), nullable=True)
     societe    = db.Column(db.String(200), default="")
     status     = db.Column(db.String(50), default="formulaire")
     data       = db.Column(db.Text, default="{}")
@@ -36,6 +38,7 @@ class Procedure(db.Model):
     ref        = db.Column(db.String(20), unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    children   = db.relationship("Procedure", backref=db.backref("parent", remote_side="Procedure.id"), lazy=True)
 
 with app.app_context():
     db.create_all()
@@ -58,11 +61,14 @@ def get_user():
         return User.query.get(session["user_id"])
     return None
 
-def make_ref(type_, id_):
+def make_ref(type_, id_, phase=None):
     prefix = "DIS" if type_ == "dissolution" else "CRE"
+    if phase:
+        return f"{prefix}-P{phase}-{datetime.now().year}-{id_:04d}"
     return f"{prefix}-{datetime.now().year}-{id_:04d}"
 
 STATUS = {
+    "en_attente": ("🔒", "En attente",  "#64748B"),
     "formulaire": ("📝", "Formulaire",  "#F59E0B"),
     "documents":  ("📄", "Documents",   "#3B82F6"),
     "signature":  ("✍️",  "Signature",   "#8B5CF6"),
@@ -1006,6 +1012,32 @@ function cshowRecap(){
 # DASHBOARD
 # ──────────────────────────────────────────────────────────────────
 
+def _phase_tracker(p):
+    """Mini 3-step progress bar for dissolution dossiers (called with root P1)."""
+    phases = [p] + sorted(p.children, key=lambda c: c.phase or 0)
+    ph_labels = ["Dissolution", "Liquidation", "Clôture"]
+    parts = []
+    for i, (ph, pl) in enumerate(zip(phases, ph_labels)):
+        ph_ico, _, ph_col = STATUS.get(ph.status, ("📝","","#94A3B8"))
+        locked = ph.status == "en_attente"
+        dot_col = "#475569" if locked else ph_col
+        icon    = "🔒" if locked else ph_ico
+        label_col = "var(--text3)" if locked else "var(--text2)"
+        dot = (f'<a href="/procedure/{ph.id}" style="display:flex;flex-direction:column;'
+               f'align-items:center;gap:3px;text-decoration:none;min-width:60px">'
+               f'<div style="width:26px;height:26px;border-radius:50%;background:{dot_col}22;'
+               f'border:2px solid {dot_col};display:flex;align-items:center;'
+               f'justify-content:center;font-size:11px">{icon}</div>'
+               f'<span style="font-size:10px;color:{label_col};white-space:nowrap">P{i+1} {pl}</span>'
+               f'</a>')
+        parts.append(dot)
+        if i < len(phases) - 1:
+            line_col = "#10B981" if phases[i].status == "termine" else "var(--border)"
+            parts.append(f'<div style="flex:1;height:2px;background:{line_col};margin-bottom:13px"></div>')
+    return ('<div style="display:flex;align-items:center;gap:0;margin-top:10px">'
+            + "".join(parts) + "</div>")
+
+
 def dashboard_html(user, procedures):
     nb_total    = len(procedures)
     nb_termine  = sum(1 for p in procedures if p.status == "termine")
@@ -1017,6 +1049,7 @@ def dashboard_html(user, procedures):
         typ_lbl = "Dissolution" if p.type == "dissolution" else "Création"
         typ_col = "#EF4444" if p.type == "dissolution" else "#3B82F6"
         date = p.created_at.strftime("%d/%m/%Y")
+        tracker = _phase_tracker(p) if p.type == "dissolution" and p.phase == 1 else ""
         rows += f"""
         <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;
              background:var(--card2);border-radius:12px;border:1px solid var(--border)">
@@ -1028,6 +1061,7 @@ def dashboard_html(user, procedures):
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:15px;margin-bottom:3px">{p.societe or "—"}</div>
             <div style="font-size:12px;color:var(--text2)">{p.ref or "—"} · {date}</div>
+            {tracker}
           </div>
           <span class="badge" style="background:rgba(0,0,0,.3);border:1px solid {typ_col}33;color:{typ_col}">{typ_lbl}</span>
           <span class="badge" style="background:rgba(0,0,0,.3);border:1px solid {col}33;color:{col}">{ico} {lbl}</span>
@@ -1083,27 +1117,61 @@ def dashboard_html(user, procedures):
 # PROCEDURE DETAIL
 # ──────────────────────────────────────────────────────────────────
 
-def procedure_detail_html(p):
-    ico, lbl, col = STATUS.get(p.status, ("📝","En cours","#94A3B8"))
-    data = json.loads(p.data or "{}")
-    typ = "Dissolution & Radiation" if p.type == "dissolution" else "Création de société"
+PHASE_META = {
+    1: {
+        "label": "Phase 1 — Dissolution",
+        "desc":  "Convocation AGE · Annonce légale · Dépôt M2 au Guichet Unique",
+        "docs": [
+            ("PV AGE extraordinaire (dissolution)", "Modèle standardisé fourni", True),
+            ("Formulaire M2", "Généré automatiquement", True),
+            ("Mandat mandataire", "Généré automatiquement", True),
+            ("Annonce légale de dissolution", "Commandée automatiquement", True),
+        ],
+        "timeline_done": ("✅","Terminé","Dissolution enregistrée à l'INPI"),
+    },
+    2: {
+        "label": "Phase 2 — Liquidation",
+        "desc":  "Opérations de liquidation · Documents comptables",
+        "docs": [
+            ("Rapport du liquidateur", "À rédiger par le liquidateur désigné", False),
+            ("Bilan de liquidation", "À fournir par votre comptable", False),
+            ("Attestation de régularité fiscale", "À obtenir auprès des impôts", False),
+            ("Attestation URSSAF", "À fournir par votre comptable", False),
+        ],
+        "timeline_done": ("✅","Terminé","Liquidation terminée"),
+    },
+    3: {
+        "label": "Phase 3 — Clôture & Radiation",
+        "desc":  "Convocation AGE clôture · Annonce légale · Dépôt M4 · Radiation INPI",
+        "docs": [
+            ("PV AGE de clôture de liquidation", "Modèle standardisé fourni", True),
+            ("Formulaire M4", "Généré automatiquement", True),
+            ("Mandat mandataire", "Généré automatiquement", True),
+            ("Annonce légale de clôture", "Commandée automatiquement", True),
+        ],
+        "timeline_done": ("✅","Terminé","Radiation enregistrée — Kbis de radiation disponible"),
+    },
+}
 
+
+def _build_timeline(p, col):
     steps_order = ["formulaire","documents","signature","paiement","depose","termine"]
     cur_idx = steps_order.index(p.status) if p.status in steps_order else 0
-
-    timeline = ""
+    phase = p.phase
+    done_label = PHASE_META[phase]["timeline_done"] if phase and phase in PHASE_META else ("✅","Terminé","Dossier terminé")
     labels = {
         "formulaire": ("📝","Formulaire reçu","Votre dossier a été créé"),
-        "documents":  ("📄","Documents","En attente de vos documents comptables"),
+        "documents":  ("📄","Documents","En attente de vos documents"),
         "signature":  ("✍️","Signature","Documents envoyés pour signature eIDAS"),
-        "paiement":   ("💳","Paiement","En attente de paiement"),
+        "paiement":   ("💳","Paiement","En attente de règlement"),
         "depose":     ("⚙️","Déposé à l'INPI","Dossier déposé sur le Guichet Unique"),
-        "termine":    ("✅","Terminé","Radiation/Kbis disponible"),
+        "termine":    done_label,
     }
+    timeline = ""
     for i, s in enumerate(steps_order):
         e, t, d = labels[s]
         done = i <= cur_idx
-        c = col if i == cur_idx else ("#10B981" if done else "var(--border)")
+        c  = col if i == cur_idx else ("#10B981" if done else "var(--border)")
         tc = col if i == cur_idx else ("#10B981" if done else "var(--text3)")
         timeline += f"""
         <div style="display:flex;gap:16px;align-items:flex-start">
@@ -1118,25 +1186,13 @@ def procedure_detail_html(p):
             <div style="font-size:13px;color:var(--text2);margin-top:2px">{d}</div>
           </div>
         </div>"""
+    return timeline
 
+
+def _build_doc_rows(docs_needed):
     doc_rows = ""
-    docs_needed = [
-        ("Procès-verbal AGE", "Généré automatiquement", True),
-        ("Formulaire M4 / M0", "Généré automatiquement", True),
-        ("Mandat mandataire", "Généré automatiquement", True),
-        ("Bilan de liquidation", "À fournir par votre comptable", False),
-        ("Attestation fiscale", "À fournir par votre comptable", False),
-        ("Attestation URSSAF", "À fournir par votre comptable", False),
-    ] if p.type == "dissolution" else [
-        ("Statuts de la société", "Généré automatiquement", True),
-        ("Formulaire M0", "Généré automatiquement", True),
-        ("Mandat mandataire", "Généré automatiquement", True),
-        ("Attestation de dépôt capital", "À fournir par votre banque", False),
-        ("Annonce légale", "Commandée automatiquement", True),
-    ]
-
     for name, origin, auto in docs_needed:
-        icon = "✅" if auto else "⏳"
+        icon  = "✅" if auto else "⏳"
         color = "var(--green)" if auto else "var(--orange)"
         doc_rows += f"""
         <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;
@@ -1150,6 +1206,125 @@ def procedure_detail_html(p):
             {"Disponible" if auto else "En attente"}
           </span>
         </div>"""
+    return doc_rows
+
+
+def _phase_nav_bar(p):
+    """Navigation between dissolution phases — returns HTML string."""
+    root = p.parent if p.parent else p
+    all_phases = [root] + sorted(root.children, key=lambda c: c.phase or 0)
+    ph_names = {1: "Dissolution", 2: "Liquidation", 3: "Clôture"}
+    nav_items = ""
+    for ph in all_phases:
+        ph_ico, _, ph_col = STATUS.get(ph.status, ("📝","","#94A3B8"))
+        locked = ph.status == "en_attente"
+        is_current = ph.id == p.id
+        dot_col = "#475569" if locked else ph_col
+        icon    = "🔒" if locked else ph_ico
+        bg      = f"background:{dot_col}15;border:1px solid {dot_col}44;" if is_current else "border:1px solid transparent;"
+        nav_items += (
+            f'<a href="/procedure/{ph.id}" style="display:flex;align-items:center;gap:8px;'
+            f'padding:8px 14px;border-radius:8px;text-decoration:none;{bg}'
+            f'color:{"var(--gold)" if is_current else "var(--text2)"};font-size:13px;font-weight:{"700" if is_current else "400"}">'
+            f'<span>{icon}</span>'
+            f'<span>P{ph.phase} — {ph_names.get(ph.phase, "")}</span>'
+            f'</a>'
+        )
+    return (
+        '<div style="display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);'
+        'border-radius:10px;padding:4px;margin-bottom:28px;flex-wrap:wrap">'
+        + nav_items + '</div>'
+    )
+
+
+def procedure_detail_html(p):
+    ico, lbl, col = STATUS.get(p.status, ("📝","En cours","#94A3B8"))
+    data = json.loads(p.data or "{}")
+
+    # ── Dissolution avec phases ─────────────────────────────────────
+    if p.type == "dissolution" and p.phase:
+        meta = PHASE_META.get(p.phase, {})
+        phase_label = meta.get("label", f"Phase {p.phase}")
+        phase_desc  = meta.get("desc", "")
+        docs_needed = meta.get("docs", [])
+
+        phase_nav = _phase_nav_bar(p)
+
+        if p.status == "en_attente":
+            prev_phase = p.phase - 1
+            locked_block = f"""
+            <div style="text-align:center;padding:60px 20px">
+              <div style="font-size:48px;margin-bottom:16px">🔒</div>
+              <p style="font-size:16px;font-weight:600;margin-bottom:8px">Phase verrouillée</p>
+              <p style="color:var(--text2);font-size:14px">
+                Cette phase sera débloquée automatiquement une fois la
+                <strong>Phase {prev_phase}</strong> marquée comme terminée.
+              </p>
+            </div>"""
+            content_block = f"""
+            <div class="grid2" style="align-items:start">
+              <div class="card">{locked_block}</div>
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents de cette phase</h3>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  {_build_doc_rows(docs_needed)}
+                </div>
+              </div>
+            </div>"""
+        else:
+            timeline = _build_timeline(p, col)
+            doc_rows = _build_doc_rows(docs_needed)
+            content_block = f"""
+            <div class="grid2" style="align-items:start">
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:20px">Suivi</h3>
+                {timeline}
+              </div>
+              <div class="card">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents</h3>
+                <div style="display:flex;flex-direction:column;gap:8px">{doc_rows}</div>
+              </div>
+            </div>"""
+
+        return f"""
+<div style="padding:48px 0 80px">
+  <a href="/dashboard" style="color:var(--text2);font-size:14px;display:inline-flex;
+     align-items:center;gap:6px;margin-bottom:28px">← Retour au dashboard</a>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;
+       flex-wrap:wrap;gap:20px;margin-bottom:24px">
+    <div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:4px">{p.ref or "—"}</div>
+      <h1 style="font-size:26px;font-weight:800;margin-bottom:6px">{p.societe or "—"}</h1>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">{phase_label} · {phase_desc}</p>
+      <span class="badge" style="background:{col}22;border:1px solid {col}44;color:{col};font-size:13px">
+        {ico} {lbl}
+      </span>
+    </div>
+    <div class="card" style="padding:20px 28px;text-align:right;min-width:180px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Prestation totale</div>
+      <div style="font-weight:700;font-size:15px">Dissolution complète (3 phases)</div>
+      <div style="font-size:24px;font-weight:800;color:var(--gold);margin-top:8px">
+        {int(p.prix if p.phase == 1 else (p.parent.prix if p.parent else 0))}€
+      </div>
+    </div>
+  </div>
+
+  {phase_nav}
+  {content_block}
+</div>"""
+
+    # ── Création (ou dissolution legacy sans phase) ─────────────────
+    typ = "Création de société"
+    timeline = _build_timeline(p, col)
+    docs_needed = [
+        ("Statuts de la société", "Modèle standardisé fourni", True),
+        ("Formulaire M0", "Généré automatiquement", True),
+        ("Mandat mandataire", "Généré automatiquement", True),
+        ("Attestation de dépôt capital", "À fournir par votre banque", False),
+        ("Annonce légale de constitution", "Commandée automatiquement", True),
+    ]
+    doc_rows = _build_doc_rows(docs_needed)
 
     return f"""
 <div style="padding:48px 0 80px">
@@ -1265,7 +1440,8 @@ def logout():
 @login_required
 def dashboard():
     u = get_user()
-    procs = Procedure.query.filter_by(user_id=u.id).order_by(Procedure.created_at.desc()).all()
+    # N'afficher que les procédures racines (pas les phases 2/3 qui sont des enfants)
+    procs = Procedure.query.filter_by(user_id=u.id, parent_id=None).order_by(Procedure.created_at.desc()).all()
     return base("Dashboard", dashboard_html(u, procs), u)
 
 
@@ -1275,19 +1451,42 @@ def dissolution():
     if request.method == "POST":
         u = get_user()
         nom = request.form.get("nom_societe","").strip()
-        data = {k: v for k, v in request.form.items() if k != "type"}
-        p = Procedure(
-            user_id=u.id, type="dissolution",
-            societe=f"{nom} {request.form.get('forme','')}".strip(),
-            status="documents", data=json.dumps(data),
+        societe = f"{nom} {request.form.get('forme','')}".strip()
+        data = json.dumps({k: v for k, v in request.form.items() if k != "type"})
+
+        # Phase 1 — Dissolution (AG + annonce légale dissolution + dépôt M2)
+        p1 = Procedure(
+            user_id=u.id, type="dissolution", phase=1,
+            societe=societe, status="documents", data=data,
             prix=PRIX["dissolution"]
         )
-        db.session.add(p)
+        db.session.add(p1)
         db.session.flush()
-        p.ref = make_ref("dissolution", p.id)
+        p1.ref = make_ref("dissolution", p1.id, phase=1)
+
+        # Phase 2 — Liquidation (période intermédiaire — débloquée après phase 1 terminée)
+        p2 = Procedure(
+            user_id=u.id, type="dissolution", phase=2,
+            parent_id=p1.id, societe=societe, status="en_attente",
+            data=data, prix=0
+        )
+        db.session.add(p2)
+        db.session.flush()
+        p2.ref = make_ref("dissolution", p2.id, phase=2)
+
+        # Phase 3 — Clôture & Radiation (AG clôture + annonce légale clôture + dépôt M4)
+        p3 = Procedure(
+            user_id=u.id, type="dissolution", phase=3,
+            parent_id=p1.id, societe=societe, status="en_attente",
+            data=data, prix=0
+        )
+        db.session.add(p3)
+        db.session.flush()
+        p3.ref = make_ref("dissolution", p3.id, phase=3)
+
         db.session.commit()
-        flash("Dossier créé ! Vos documents sont générés depuis nos modèles standardisés.", "success")
-        return redirect(url_for("procedure", id=p.id))
+        flash("Dossier créé en 3 phases ! Commencez par la Phase 1 — Dissolution.", "success")
+        return redirect(url_for("procedure", id=p1.id))
     return base("Dissolution", DISSOLUTION_HTML)
 
 
