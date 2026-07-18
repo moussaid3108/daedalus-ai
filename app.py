@@ -270,6 +270,14 @@ LANDING = """
 .trust-item{text-align:center}
 .trust-val{font-size:28px;font-weight:800;color:var(--gold)}
 .trust-lbl{font-size:13px;color:var(--text2);margin-top:4px}
+.cmp-table{width:100%;border-collapse:collapse;font-size:14px}
+.cmp-table thead tr{border-bottom:1px solid var(--border)}
+.cmp-table th{padding:14px 24px;color:var(--text2);font-weight:600;text-align:left}
+.cmp-table th:not(:first-child){text-align:center}
+.cmp-table td{padding:13px 24px}
+.cmp-table td:not(:first-child){text-align:center}
+.cmp-table tr{border-bottom:1px solid rgba(30,58,90,.5)}
+.cmp-table tr:last-child{border:none}
 footer{
   text-align:center;padding:40px 0;color:var(--text3);
   font-size:13px;border-top:1px solid var(--border);margin-top:60px
@@ -362,7 +370,7 @@ footer{
     <h2>Tarifs transparents</h2>
     <p>Aucun frais caché. Prix TTC, tout inclus.</p>
   </div>
-  <div class="grid2" style="max-width:700px;margin:0 auto 80px">
+  <div class="grid2" style="max-width:700px;margin:0 auto 48px">
     <div class="card" style="text-align:center;border-color:rgba(201,168,76,.3)">
       <div style="font-size:40px;margin-bottom:16px">🏢</div>
       <h3 style="font-size:20px;margin-bottom:8px">Dissolution</h3>
@@ -377,6 +385,132 @@ footer{
       <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Statuts + annonce légale + INPI</p>
       <a class="btn" style="width:100%;justify-content:center;background:var(--blue);color:#fff" href="/creation">Commencer</a>
     </div>
+  </div>
+
+  <!-- COMPARATIF -->
+  <div style="max-width:900px;margin:0 auto 80px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.1);
+           border:1px solid rgba(16,185,129,.3);border-radius:30px;padding:8px 20px;
+           font-size:13px;color:var(--green);font-weight:600;margin-bottom:16px">
+        🔍 Le vrai coût chez la concurrence
+      </div>
+      <h3 style="font-size:22px;font-weight:800;margin-bottom:8px">Pourquoi INPIrequest coûte moins cher au final</h3>
+      <p style="color:var(--text2);font-size:15px">Les plateformes affichent des prix bas mais facturent chaque étape séparément.</p>
+    </div>
+
+    <!-- Tableau Dissolution -->
+    <div class="card" style="margin-bottom:20px;padding:0;overflow:hidden">
+      <div style="background:rgba(201,168,76,.08);border-bottom:1px solid var(--border);
+           padding:16px 24px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🏢</span>
+        <span style="font-weight:700;font-size:16px">Dissolution & Radiation</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>Prestation</th>
+              <th style="color:var(--text2)">Concurrents</th>
+              <th style="color:var(--gold)">INPIrequest</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Honoraires de traitement</td>
+              <td style="color:var(--text2)">~100€</td>
+              <td style="color:var(--gold);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Annonce légale (dissolution)</td>
+              <td style="color:var(--text2)">~180€ en sus</td>
+              <td style="color:var(--gold);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Dépôt Guichet Unique INPI</td>
+              <td style="color:var(--text2)">~50€ en sus</td>
+              <td style="color:var(--gold);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Signature électronique eIDAS</td>
+              <td style="color:var(--text2)">~30€ en sus</td>
+              <td style="color:var(--gold);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Génération PV & documents légaux</td>
+              <td style="color:var(--red)">✗ non inclus</td>
+              <td style="color:var(--gold);font-weight:600">inclus</td>
+            </tr>
+            <tr style="background:rgba(201,168,76,.06)">
+              <td style="font-weight:700">Total réel</td>
+              <td style="font-weight:800;color:var(--red);font-size:18px">~360€+</td>
+              <td style="font-weight:800;color:var(--gold);font-size:18px">299€</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tableau Création -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:rgba(59,130,246,.08);border-bottom:1px solid var(--border);
+           padding:16px 24px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🚀</span>
+        <span style="font-weight:700;font-size:16px">Création de société</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>Prestation</th>
+              <th style="color:var(--text2)">Concurrents</th>
+              <th style="color:var(--blue)">INPIrequest</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Honoraires de traitement</td>
+              <td style="color:var(--text2)">~199€</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Rédaction des statuts</td>
+              <td style="color:var(--text2)">~100€ en sus</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Annonce légale (constitution)</td>
+              <td style="color:var(--text2)">~180€ en sus</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Dépôt INPI + Kbis</td>
+              <td style="color:var(--text2)">~50€ en sus</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Signature électronique eIDAS</td>
+              <td style="color:var(--text2)">~30€ en sus</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr>
+              <td>Accompagnement dédié</td>
+              <td style="color:var(--red)">✗ non inclus</td>
+              <td style="color:var(--blue);font-weight:600">inclus</td>
+            </tr>
+            <tr style="background:rgba(59,130,246,.06)">
+              <td style="font-weight:700">Total réel</td>
+              <td style="font-weight:800;color:var(--red);font-size:18px">~559€+</td>
+              <td style="font-weight:800;color:var(--blue);font-size:18px">499€</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:16px">
+      * Estimations basées sur les tarifs publics des principales plateformes juridiques en ligne. Annonces légales selon tarifs préfectoraux 2024.
+    </p>
   </div>
 </div>
 
