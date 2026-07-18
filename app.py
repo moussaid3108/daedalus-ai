@@ -79,6 +79,41 @@ STATUS = {
 
 PRIX = {"dissolution": 299, "creation": 499}
 
+VALIDATION_CHECKS = {
+    1: [
+        ("pv_signe",       "PV AGE signé par tous les associés",
+                           "PV non signé = 1ère cause de rejet INPI"),
+        ("annonce_paru",   "Attestation de parution reçue (≠ facture)",
+                           "L'INPI exige l'attestation officielle, pas la facture du journal"),
+        ("siren_ok",       "SIREN 9 chiffres vérifié et actif",
+                           "Un SIREN erroné ou radié bloque le dépôt automatiquement"),
+        ("delai_age",      "Convocation AGE envoyée ≥ 8 jours avant la date",
+                           "Délai légal de convocation obligatoire (art. L223-27 C.com)"),
+    ],
+    2: [
+        ("bilan_liq",      "Bilan de liquidation établi par le comptable",
+                           "Solde doit être nul ou boni de liquidation déclaré"),
+        ("rapport_liq",    "Rapport du liquidateur rédigé et signé",
+                           "Document obligatoire joint au dossier clôture"),
+        ("attest_fiscale", "Attestation de régularité fiscale obtenue",
+                           "À demander aux impôts — prévoir 2 à 3 semaines"),
+        ("attest_urssaf",  "Attestation de vigilance URSSAF à jour",
+                           "Attestation obligatoire, valable 6 mois"),
+        ("delai_60j",      "Déclaration IS/TVA déposée dans les 60 jours",
+                           "Délai fiscal légal après dissolution — pénalités si dépassé"),
+    ],
+    3: [
+        ("pv_cloture",     "PV AGE clôture signé par tous les associés",
+                           "Même exigence que le PV de dissolution"),
+        ("annonce_cloture","Attestation parution clôture reçue (≠ facture)",
+                           "2ème annonce légale obligatoire pour la radiation"),
+        ("compte_solde",   "Compte bancaire de liquidation soldé et clôturé",
+                           "Le solde doit être nul — virement boni ou répartition perte"),
+        ("kbis_maj",       "Extrait Kbis récent vérifié (< 3 mois)",
+                           "L'INPI vérifie la cohérence avec le Kbis actuel"),
+    ],
+}
+
 
 # ══════════════════════════════════════════════════════════════════
 # CSS GLOBAL
@@ -93,7 +128,8 @@ CSS = """
   --green:#10B981;--blue:#3B82F6;--purple:#8B5CF6;
   --red:#EF4444;--orange:#F97316;
 }
-body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+html{overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 input,select,textarea{
   background:var(--card2);border:1px solid var(--border);border-radius:10px;
@@ -139,7 +175,13 @@ nav{
 /* Grid */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-@media(max-width:768px){.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:768px){
+  .grid2,.grid3{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .nav-actions .btn-outline{display:none}
+  nav{padding:0 4%}
+  .hero h1{font-size:clamp(28px,8vw,48px)}
+}
 /* Steps */
 .steps{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:40px}
 .step{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;position:relative}
@@ -1012,6 +1054,66 @@ function cshowRecap(){
 # DASHBOARD
 # ──────────────────────────────────────────────────────────────────
 
+def _build_checklist(p):
+    if not p.phase or p.phase not in VALIDATION_CHECKS:
+        return ""
+    checks_def = VALIDATION_CHECKS[p.phase]
+    data = json.loads(p.data or "{}")
+    checks = data.get("checks", {})
+    all_done = all(checks.get(k, False) for k, _, _ in checks_def)
+    nb_missing = sum(1 for k, _, _ in checks_def if not checks.get(k, False))
+
+    items_html = ""
+    for key, label, reason in checks_def:
+        done = checks.get(key, False)
+        bg  = "rgba(16,185,129,.08)" if done else "var(--card2)"
+        bdr = "1px solid rgba(16,185,129,.2)" if done else "1px solid transparent"
+        strike = "text-decoration:line-through;opacity:.6;" if done else ""
+        items_html += f"""
+        <form method="POST" action="/procedure/{p.id}/check/{key}" style="margin:0">
+          <button type="submit" style="width:100%;background:{bg};border:{bdr};cursor:pointer;
+               text-align:left;padding:12px 16px;border-radius:10px;
+               display:flex;align-items:flex-start;gap:12px;transition:.2s">
+            <span style="font-size:18px;flex-shrink:0;margin-top:1px">{"✅" if done else "⬜"}</span>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:500;color:var(--text);{strike}">{label}</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:2px">{reason}</div>
+            </div>
+          </button>
+        </form>"""
+
+    if all_done:
+        banner = """<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);
+             border-radius:10px;padding:12px 16px;margin-bottom:12px;
+             display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">✅</span>
+          <span style="font-size:13px;font-weight:600;color:#6EE7B7">Dossier prêt pour le dépôt INPI</span>
+        </div>"""
+    else:
+        banner = f"""<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);
+             border-radius:10px;padding:12px 16px;margin-bottom:12px;
+             display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#FCA5A5">
+              {nb_missing} point(s) à valider avant dépôt INPI
+            </div>
+            <div style="font-size:12px;color:var(--text2)">
+              Ces points sont les vraies causes de rejet — à cocher avant de déposer
+            </div>
+          </div>
+        </div>"""
+
+    return f"""
+    <div class="card" style="margin-top:20px">
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">
+        Checklist avant dépôt INPI
+      </h3>
+      {banner}
+      <div style="display:flex;flex-direction:column;gap:8px">{items_html}</div>
+    </div>"""
+
+
 def _phase_tracker(p):
     """Mini 3-step progress bar for dissolution dossiers (called with root P1)."""
     phases = [p] + sorted(p.children, key=lambda c: c.phase or 0)
@@ -1274,6 +1376,7 @@ def procedure_detail_html(p):
         else:
             timeline = _build_timeline(p, col)
             doc_rows = _build_doc_rows(docs_needed)
+            checklist = _build_checklist(p)
             content_block = f"""
             <div class="grid2" style="align-items:start">
               <div class="card">
@@ -1284,7 +1387,8 @@ def procedure_detail_html(p):
                 <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents</h3>
                 <div style="display:flex;flex-direction:column;gap:8px">{doc_rows}</div>
               </div>
-            </div>"""
+            </div>
+            {checklist}"""
 
         return f"""
 <div style="padding:48px 0 80px">
@@ -1518,6 +1622,26 @@ def procedure(id):
     u = get_user()
     p = Procedure.query.filter_by(id=id, user_id=u.id).first_or_404()
     return base(f"Dossier {p.ref}", procedure_detail_html(p), u)
+
+
+@app.route("/procedure/<int:id>/check/<key>", methods=["POST"])
+@login_required
+def toggle_check(id, key):
+    u = get_user()
+    p = Procedure.query.filter_by(id=id, user_id=u.id).first_or_404()
+    if not p.phase or p.phase not in VALIDATION_CHECKS:
+        return redirect(url_for("procedure", id=id))
+    valid_keys = {k for k, _, _ in VALIDATION_CHECKS[p.phase]}
+    if key not in valid_keys:
+        return redirect(url_for("procedure", id=id))
+    data = json.loads(p.data or "{}")
+    checks = data.get("checks", {})
+    checks[key] = not checks.get(key, False)
+    data["checks"] = checks
+    p.data = json.dumps(data)
+    p.updated_at = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for("procedure", id=id))
 
 
 if __name__ == "__main__":
