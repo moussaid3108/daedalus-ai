@@ -279,7 +279,7 @@ footer{
 <div class="hero">
   <div class="hero-badge">⚡ 100% en ligne · Livraison sous 48h</div>
   <h1>Vos formalités <span>INPI</span><br>en quelques clics</h1>
-  <p>Créez ou fermez votre société sans vous déplacer. Nous préparons tous vos documents et déposons à l'INPI à votre place.</p>
+  <p>Créez ou fermez votre société sans vous déplacer. Générez vos documents depuis nos modèles standardisés — nous déposons à l'INPI à votre place en tant que mandataire.</p>
   <div class="hero-btns">
     <a class="btn btn-gold" href="#services" style="font-size:16px;padding:16px 36px">Démarrer</a>
     <a class="btn btn-outline" href="#comment" style="font-size:16px;padding:16px 36px">Comment ça marche</a>
@@ -302,7 +302,7 @@ footer{
     <div class="service-card" onclick="location.href='/dissolution'">
       <div class="service-icon">🏢</div>
       <h3>Dissolution & Radiation</h3>
-      <p>Fermez votre société en toute sérénité. Nous gérons l'intégralité du dossier de A à Z.</p>
+      <p>Fermez votre société en toute sérénité. Générez vos documents via nos modèles, signez en ligne — nous déposons le dossier à l'INPI en tant que mandataire.</p>
       <div class="service-price">299€ <span>TTC tout inclus</span></div>
       <ul class="service-features">
         <li>PV d'Assemblée Générale</li>
@@ -315,11 +315,11 @@ footer{
     <div class="service-card" onclick="location.href='/creation'">
       <div class="service-icon">🚀</div>
       <h3>Création de société</h3>
-      <p>Lancez votre activité rapidement. Statuts rédigés, INPI déposé, Kbis livré.</p>
+      <p>Lancez votre activité rapidement. Statuts générés depuis nos modèles, INPI déposé, Kbis livré.</p>
       <div class="service-price">499€ <span>TTC tout inclus</span></div>
       <ul class="service-features">
         <li>SAS · SARL · SCI · EURL</li>
-        <li>Rédaction des statuts</li>
+        <li>Modèles de statuts self-service</li>
         <li>Annonce légale incluse</li>
         <li>Signature électronique eIDAS</li>
         <li>Dépôt INPI + Kbis</li>
@@ -466,7 +466,7 @@ footer{
               <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
             <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
-              <td style="padding:13px 24px">Rédaction des statuts</td>
+              <td style="padding:13px 24px">Modèles de statuts standardisés</td>
               <td style="text-align:center;padding:13px 16px;color:var(--text2)">~100€ en sus</td>
               <td style="text-align:center;padding:13px 16px;color:var(--blue);font-weight:600">inclus</td>
             </tr>
@@ -1286,7 +1286,7 @@ def dissolution():
         db.session.flush()
         p.ref = make_ref("dissolution", p.id)
         db.session.commit()
-        flash("Dossier créé ! Nous préparons vos documents.", "success")
+        flash("Dossier créé ! Vos documents sont générés depuis nos modèles standardisés.", "success")
         return redirect(url_for("procedure", id=p.id))
     return base("Dissolution", DISSOLUTION_HTML)
 
@@ -1308,7 +1308,7 @@ def creation():
         db.session.flush()
         p.ref = make_ref("creation", p.id)
         db.session.commit()
-        flash("Dossier créé ! Nous préparons vos statuts.", "success")
+        flash("Dossier créé ! Vos modèles de statuts sont prêts à compléter.", "success")
         return redirect(url_for("procedure", id=p.id))
     return base("Création", CREATION_HTML)
 
