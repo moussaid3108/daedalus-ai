@@ -219,7 +219,7 @@ LANDING = """
   background:linear-gradient(135deg,var(--gold),var(--gold2));
   -webkit-background-clip:text;-webkit-text-fill-color:transparent
 }
-.hero p{font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 40px;line-height:1.6}
+.hero p{font-size:18px;color:var(--text2);max-width:600px;margin:0 auto 40px;line-height:1.6}
 .hero-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 .hero-badge{
   display:inline-flex;align-items:center;gap:8px;
@@ -287,7 +287,7 @@ footer{
 <div class="hero">
   <div class="hero-badge">⚡ 100% en ligne · Livraison sous 48h</div>
   <h1>Vos formalités <span>INPI</span><br>en quelques clics</h1>
-  <p>Créez ou fermez votre société sans vous déplacer. Nous préparons tous vos documents et déposons à l'INPI à votre place.</p>
+  <p>Créez ou fermez votre société sans vous déplacer. Générez vos documents depuis nos modèles standardisés — nous déposons à l'INPI à votre place en tant que mandataire.</p>
   <div class="hero-btns">
     <a class="btn btn-gold" href="#services" style="font-size:16px;padding:16px 36px">Démarrer</a>
     <a class="btn btn-outline" href="#comment" style="font-size:16px;padding:16px 36px">Comment ça marche</a>
@@ -310,10 +310,10 @@ footer{
     <div class="service-card" onclick="location.href='/dissolution'">
       <div class="service-icon">🏢</div>
       <h3>Dissolution & Radiation</h3>
-      <p>Fermez votre société en toute sérénité. Nous gérons l'intégralité du dossier de A à Z.</p>
+      <p>Fermez votre société en toute sérénité. Générez vos documents via nos modèles, signez en ligne — nous déposons le dossier à l'INPI en tant que mandataire.</p>
       <div class="service-price">299€ <span>TTC tout inclus</span></div>
       <ul class="service-features">
-        <li>PV d'Assemblée Générale</li>
+        <li>PV d'Assemblée Générale (modèle)</li>
         <li>Annonce légale incluse</li>
         <li>Signature électronique eIDAS</li>
         <li>Dépôt Guichet Unique INPI</li>
@@ -323,11 +323,11 @@ footer{
     <div class="service-card" onclick="location.href='/creation'">
       <div class="service-icon">🚀</div>
       <h3>Création de société</h3>
-      <p>Lancez votre activité rapidement. Statuts rédigés, INPI déposé, Kbis livré.</p>
+      <p>Lancez votre activité rapidement. Statuts générés depuis nos modèles, INPI déposé, Kbis livré.</p>
       <div class="service-price">499€ <span>TTC tout inclus</span></div>
       <ul class="service-features">
         <li>SAS · SARL · SCI · EURL</li>
-        <li>Rédaction des statuts</li>
+        <li>Modèles de statuts self-service</li>
         <li>Annonce légale incluse</li>
         <li>Signature électronique eIDAS</li>
         <li>Dépôt INPI + Kbis</li>
@@ -344,23 +344,23 @@ footer{
   <div class="how-grid">
     <div class="how-card">
       <div class="how-num">1</div>
-      <h4>Formulaire en ligne</h4>
-      <p>Remplissez les infos de votre société en 5 minutes</p>
+      <h4>Questionnaire en ligne</h4>
+      <p>Répondez à quelques questions sur votre société en 5 minutes</p>
     </div>
     <div class="how-card">
       <div class="how-num">2</div>
-      <h4>Génération des documents</h4>
-      <p>Vos PV et documents légaux générés automatiquement</p>
+      <h4>Génération des modèles</h4>
+      <p>Vos modèles de documents légaux sont générés automatiquement — vous les vérifiez et validez</p>
     </div>
     <div class="how-card">
       <div class="how-num">3</div>
       <h4>Signature électronique</h4>
-      <p>Signez en ligne avec votre téléphone — valeur juridique eIDAS</p>
+      <p>Signez en ligne avec votre téléphone — valeur juridique eIDAS qualifiée</p>
     </div>
     <div class="how-card">
       <div class="how-num">4</div>
       <h4>Dépôt INPI</h4>
-      <p>Nous déposons à votre place sur le Guichet Unique INPI</p>
+      <p>Nous déposons à votre place sur le Guichet Unique INPI en tant que mandataire</p>
     </div>
   </div>
 </div>
@@ -382,7 +382,7 @@ footer{
       <div style="font-size:40px;margin-bottom:16px">🚀</div>
       <h3 style="font-size:20px;margin-bottom:8px">Création</h3>
       <div style="font-size:48px;font-weight:800;color:var(--blue);margin:16px 0">499€</div>
-      <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Statuts + annonce légale + INPI</p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Modèles + annonce légale + INPI</p>
       <a class="btn" style="width:100%;justify-content:center;background:var(--blue);color:#fff" href="/creation">Commencer</a>
     </div>
   </div>
@@ -437,7 +437,7 @@ footer{
               <td style="color:var(--gold);font-weight:600">inclus</td>
             </tr>
             <tr>
-              <td>Génération PV & documents légaux</td>
+              <td>Génération modèles PV & documents</td>
               <td style="color:var(--red)">✗ non inclus</td>
               <td style="color:var(--gold);font-weight:600">inclus</td>
             </tr>
@@ -474,7 +474,7 @@ footer{
               <td style="color:var(--blue);font-weight:600">inclus</td>
             </tr>
             <tr>
-              <td>Rédaction des statuts</td>
+              <td>Modèles de statuts standardisés</td>
               <td style="color:var(--text2)">~100€ en sus</td>
               <td style="color:var(--blue);font-weight:600">inclus</td>
             </tr>
@@ -563,7 +563,7 @@ DISSOLUTION_HTML = """
   <div style="text-align:center;margin-bottom:48px">
     <div style="font-size:13px;color:var(--gold);font-weight:600;margin-bottom:8px;letter-spacing:1px">DISSOLUTION & RADIATION</div>
     <h1 style="font-size:32px;font-weight:800;margin-bottom:10px">Fermer votre société</h1>
-    <p style="color:var(--text2)">Remplissez le formulaire, on s'occupe du reste</p>
+    <p style="color:var(--text2)">Répondez au questionnaire — vos modèles de documents sont générés automatiquement</p>
   </div>
 
   <div class="steps" id="steps">
@@ -609,7 +609,7 @@ DISSOLUTION_HTML = """
             <input type="number" name="capital" placeholder="1000" min="1" required>
           </div>
           <div class="form-group">
-            <label>Date de l'AGE *</label>
+            <label>Date de l'AGE dissolution *</label>
             <input type="date" name="date_age" required>
           </div>
         </div>
@@ -658,10 +658,10 @@ DISSOLUTION_HTML = """
       <div class="step-panel card" id="panel3">
         <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Liquidateur amiable</h3>
         <p style="color:var(--text2);font-size:14px;margin-bottom:24px">
-          Le liquidateur est nommé pour gérer la clôture. Il peut être le gérant lui-même.
+          Nommé par l'AG dissolution — le gérant devient liquidateur et perd ses fonctions de dirigeant.
         </p>
         <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gold)">
-          💡 Par défaut, le gérant est nommé liquidateur. Vous pouvez changer si nécessaire.
+          💡 Dans la plupart des cas, le gérant est nommé liquidateur. Le modèle de PV le mentionne explicitement.
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -678,13 +678,13 @@ DISSOLUTION_HTML = """
           <input type="text" name="liq_adresse" placeholder="5 avenue des Fleurs, 75008 Paris" required>
         </div>
         <div class="form-group">
-          <label>Email du liquidateur * <span style="color:var(--text3)">(pour la signature électronique)</span></label>
+          <label>Email du liquidateur * <span style="color:var(--text3)">(pour la signature électronique eIDAS)</span></label>
           <input type="email" name="liq_email" placeholder="liquidateur@email.com" required>
         </div>
         <div class="divider"></div>
-        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents à fournir</h3>
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Documents à fournir après validation</h3>
         <p style="color:var(--text2);font-size:14px;margin-bottom:16px">
-          Ces documents sont fournis par votre comptable. Vous pourrez les uploader après le paiement.
+          Fournis par votre comptable — à uploader dans votre espace après le paiement.
         </p>
         <div style="display:flex;flex-direction:column;gap:10px">
           <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card2);border-radius:10px;font-size:14px">
@@ -772,9 +772,9 @@ function showRecap() {
     ['SIREN', get('siren')],
     ['Siège social', get('adresse')],
     ['Capital', get('capital') + ' €'],
-    ['Date AGE', get('date_age')],
+    ['Date AGE dissolution', get('date_age')],
     ['Gérant', get('gerant_prenom') + ' ' + get('gerant_nom')],
-    ['Liquidateur', get('liq_prenom') + ' ' + get('liq_nom')],
+    ['Liquidateur désigné', get('liq_prenom') + ' ' + get('liq_nom')],
     ['Email liquidateur', get('liq_email')],
     ['Boni de liquidation', get('boni') + ' €'],
   ];
@@ -809,7 +809,7 @@ CREATION_HTML = """
   <div style="text-align:center;margin-bottom:48px">
     <div style="font-size:13px;color:var(--blue);font-weight:600;margin-bottom:8px;letter-spacing:1px">CRÉATION DE SOCIÉTÉ</div>
     <h1 style="font-size:32px;font-weight:800;margin-bottom:10px">Créer votre société</h1>
-    <p style="color:var(--text2)">Choisissez votre forme juridique et renseignez vos informations</p>
+    <p style="color:var(--text2)">Choisissez votre forme juridique et renseignez vos informations — vos modèles de statuts sont générés automatiquement</p>
   </div>
 
   <div class="steps">
@@ -912,7 +912,7 @@ CREATION_HTML = """
           <input type="text" name="dir_adresse" placeholder="5 avenue des Fleurs, 75008 Paris" required>
         </div>
         <div class="form-group">
-          <label>Email * <span style="color:var(--text3)">(pour la signature électronique)</span></label>
+          <label>Email * <span style="color:var(--text3)">(pour la signature électronique eIDAS)</span></label>
           <input type="email" name="dir_email" placeholder="dirigeant@email.com" required>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:8px">
@@ -930,7 +930,7 @@ CREATION_HTML = """
             <span style="font-weight:600">Total à payer</span>
             <span style="font-size:28px;font-weight:800;color:var(--blue)">499€ TTC</span>
           </div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px">Statuts + annonce légale + frais INPI + signature eIDAS inclus</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px">Modèles de statuts + annonce légale + frais INPI + signature eIDAS inclus</p>
         </div>
         <input type="hidden" name="type" value="creation">
         <div style="display:flex;justify-content:space-between">
@@ -1099,9 +1099,9 @@ def procedure_detail_html(p):
 
     timeline = ""
     labels = {
-        "formulaire": ("📝","Formulaire reçu","Votre dossier a été créé"),
+        "formulaire": ("📝","Questionnaire reçu","Votre dossier a été créé"),
         "documents":  ("📄","Documents","En attente de vos documents comptables"),
-        "signature":  ("✍️","Signature","Documents envoyés pour signature eIDAS"),
+        "signature":  ("✍️","Signature eIDAS","Modèles envoyés pour signature qualifiée"),
         "paiement":   ("💳","Paiement","En attente de paiement"),
         "depose":     ("⚙️","Déposé à l'INPI","Dossier déposé sur le Guichet Unique"),
         "termine":    ("✅","Terminé","Radiation/Kbis disponible"),
@@ -1127,18 +1127,18 @@ def procedure_detail_html(p):
 
     doc_rows = ""
     docs_needed = [
-        ("Procès-verbal AGE", "Généré automatiquement", True),
-        ("Formulaire M4 / M0", "Généré automatiquement", True),
-        ("Mandat mandataire", "Généré automatiquement", True),
+        ("Modèle de PV d'AG dissolution", "Généré depuis nos modèles standardisés", True),
+        ("Formulaire M2 (modification)", "Généré automatiquement", True),
+        ("Mandat mandataire signé", "Généré automatiquement — à signer", True),
         ("Bilan de liquidation", "À fournir par votre comptable", False),
-        ("Attestation fiscale", "À fournir par votre comptable", False),
-        ("Attestation URSSAF", "À fournir par votre comptable", False),
+        ("Attestation fiscale (TVA + IS)", "À fournir par votre comptable", False),
+        ("Attestation de parution (annonce légale)", "Fournie par le journal — pas la facture", False),
     ] if p.type == "dissolution" else [
-        ("Statuts de la société", "Généré automatiquement", True),
-        ("Formulaire M0", "Généré automatiquement", True),
-        ("Mandat mandataire", "Généré automatiquement", True),
-        ("Attestation de dépôt capital", "À fournir par votre banque", False),
-        ("Annonce légale", "Commandée automatiquement", True),
+        ("Modèle de statuts", "Généré depuis nos modèles standardisés — à valider", True),
+        ("Formulaire M0 (immatriculation)", "Généré automatiquement", True),
+        ("Mandat mandataire signé", "Généré automatiquement — à signer", True),
+        ("Attestation de dépôt du capital", "À fournir par votre banque", False),
+        ("Attestation de parution (annonce légale)", "Commandée automatiquement", True),
     ]
 
     for name, origin, auto in docs_needed:
@@ -1292,7 +1292,7 @@ def dissolution():
         db.session.flush()
         p.ref = make_ref("dissolution", p.id)
         db.session.commit()
-        flash("Dossier créé ! Nous préparons vos documents.", "success")
+        flash("Dossier créé ! Vos documents sont générés depuis nos modèles standardisés.", "success")
         return redirect(url_for("procedure", id=p.id))
     return base("Dissolution", DISSOLUTION_HTML)
 
@@ -1314,7 +1314,7 @@ def creation():
         db.session.flush()
         p.ref = make_ref("creation", p.id)
         db.session.commit()
-        flash("Dossier créé ! Nous préparons vos statuts.", "success")
+        flash("Dossier créé ! Vos modèles de statuts sont prêts à compléter.", "success")
         return redirect(url_for("procedure", id=p.id))
     return base("Création", CREATION_HTML)
 
